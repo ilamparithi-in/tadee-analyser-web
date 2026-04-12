@@ -56,3 +56,9 @@ This file is append-only. Every response must add relevant rules, decisions, and
 
 - Removed duplicate scrollbar arrow buttons that 98.css exposes by default
 - Split `html, * { scroll-behavior: auto !important; }` into two rules to properly target the `html` element explicitly
+
+## Generalized Rules
+
+Project-specific rules have been extracted into reusable principles in:
+
+`CLAUDE_CONTEXT/generalized/` — 7 files (A–G) covering UI design, interaction patterns, layout, data display, rendering integration, architecture, and debugging. Each rule includes a general principle + project example. Applicable to signal processing UIs, engineering tools, and visualization dashboards.
