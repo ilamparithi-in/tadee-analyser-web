@@ -19,8 +19,14 @@
     ::-webkit-scrollbar-button:horizontal:start:increment,
     ::-webkit-scrollbar-button:horizontal:end:decrement { display: none !important; }
 
-    body { background: teal; padding: 24px; display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
-    .window { min-width: 280px; }
+    body { background: teal; margin: 0; padding: 0; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+    /* Viewport: reference frame for all absolutely-positioned windows. flex:1 excludes status bar. */
+    #viewport { position: relative; width: 100%; flex: 1; overflow: hidden; }
+    /* Windows are positioned by windowManager.js; hidden until JS assigns coordinates */
+    #viewport > .window { position: absolute; visibility: hidden; box-sizing: border-box; overflow: hidden; }
+    .window { min-width: 160px; }
+    /* Minimized window: title text truncates with ellipsis — never wraps */
+    .minimized .title-bar-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px; }
     .field-row { margin-bottom: 6px; }
 
     /* Menu bar */
@@ -172,6 +178,7 @@
   </style>
 </head>
 <body>
+<div id="viewport">
 
   <!-- 1. Standard window -->
   <div class="window" style="width: 300px;">
@@ -469,15 +476,18 @@
 
       </div>
     </div>
-    <!-- Window-level status bar (98.css classes) -->
-    <div class="status-bar">
-      <p class="status-bar-field" id="app-status-bar">No calculation performed</p>
-    </div>
   </div>
+
+</div><!-- /#viewport -->
+<!-- Global status bar: anchored to bottom of viewport by flex layout on body -->
+<div class="status-bar">
+  <p class="status-bar-field" id="app-status-bar">No calculation performed</p>
+</div>
 
   <script type="module" src="js/main.js"></script>
   <script type="module" src="js/menu.js"></script>
   <script type="module" src="js/panels.js"></script>
   <script type="module" src="js/grid.js"></script>
+  <script type="module" src="js/windowManager.js"></script>
 </body>
 </html>

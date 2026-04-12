@@ -70,3 +70,26 @@
 - No tree-shaking: load only what you need; avoid large libraries with many unused exports.
 
 **Project example:** No npm, no Webpack, no Vite. 98.css from unpkg via `<link>`. Three.js via importmap. Served via local HTTP server for development.
+
+---
+
+## Window Management — Absolute-Positioned Desktop Model
+
+**Principle:** For applications that simulate an OS desktop (multiple windows, drag, z-order), use a single `position: relative` viewport container. All windows are `position: absolute` inside it. A global Z-index counter provides focus ordering.
+
+- Viewport container: `position: relative; width: 100%; height: 100%; overflow: hidden`
+- All top-level windows: `position: absolute` — positioned by JS, not CSS flow
+- Hide windows before JS assigns coordinates (`visibility: hidden` in CSS; reveal in JS after positioning)
+- Global counter `zTop` starts above library z-values (e.g., 100); incremented on every focus event
+
+**Window state model per window:**
+```js
+{ x, y, isMinimized, isMaximized, prevState: { x, y, width, height, isMaximized } }
+```
+
+**Minimize without taskbar:** Collapse to title-bar-only bar at bottom of viewport. Stack horizontally. Re-pack (close gaps) after any restore. Store full prevState including `isMaximized` flag so chained maximize→minimize→restore works correctly.
+
+**Drag rule:** Disabled when `isMaximized`. On `isMinimized`, title bar click = restore (not drag start). Use `document` event listeners (not window element) so drag continues when pointer leaves.
+
+**Project example:** Four windows in `tadee-analyser-web`. `windowManager.js` manages all. Minimized windows stack at viewport bottom-left. Restore re-packs the stack.
+
