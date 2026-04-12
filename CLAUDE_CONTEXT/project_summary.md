@@ -12,6 +12,7 @@ This UI is a faithful Windows 98 desktop application — not a styled website. E
 - Desktop background: `teal`
 - 98.css loaded via CDN: `https://unpkg.com/98.css`
 - **Bevel/inset shadow rule**: `box-shadow: inset` is a paint-layer — it overlaps the element's content area. Any scrollable container inside a beveled panel must use `margin: 2px` to reserve bevel pixels
+- **Bevel is a forbidden pixel region**: content must never occupy bevel pixels. Enforce with `margin`/inset offsets — not `overflow: hidden`, which hides content rather than displacing it
 - **Status bar** belongs to the window, not any panel — use `<div class="status-bar"><p class="status-bar-field">` from 98.css; place it as a direct child of `.window` after `window-body`
 - **Scrollbar duplicate arrows**: 98.css exposes 2 up / 2 down — hide incorrect ones via `::-webkit-scrollbar-button:vertical:start:increment` etc. `{ display: none !important }`
 - **Scrollbar thumb**: has no `:active`/`:hover` visual in 98.css — behaves identically at rest, hover, and drag (known limitation)
@@ -29,6 +30,13 @@ This UI is a faithful Windows 98 desktop application — not a styled website. E
 - **Hover-switch** (moving from one menu item to another while open): no animation, instant show
 - **Rapid reopen** (time since close < `MENU_ANIMATION_DURATION_MS`): no animation
 - Class convention: `.animate-open` on `.dropdown-inner` triggers animation; its absence → `animation: none`
+
+### Menu State Machine
+- The menu system is a **state machine** — only one menu can be active at a time
+- Internal state: `{ isMenuOpen: bool, activeMenu: element|null, lastClosedAt: timestamp }`
+- `isMenuOpen` guards hover-switch: if already open, switching menus bypasses animation entirely
+- `lastClosedAt` timestamp guards rapid-reopen: if `Date.now() - lastClosedAt < threshold`, animation suppressed
+- Closing is triggered by: clicking outside, pressing Escape, or opening a different menu
 
 ### Splitters
 - Vertical: drag adjusts `--left-width` CSS variable on `#panel-layout`
@@ -88,11 +96,13 @@ This UI is a faithful Windows 98 desktop application — not a styled website. E
 
 ### Excel 97 Header Behavior
 - `<thead>` is sticky: `position: sticky; top: 0; z-index: 2`
-- Corner cell: `position: sticky; left: 0; z-index: 3` — **single-axis only** (no `top`)
+- Corner cell: `position: sticky; left: 0; z-index: 3` — **horizontal-axis only** (no `top`)
+  - The corner must visually align on both axes, but vertical alignment is **inherited from `<thead>`** being sticky — adding `top: 0` to the corner itself makes it an independent sticky element that can detach from the header row
+  - Rule: corner owns `left` stickiness only; `<thead>` owns `top` stickiness for the entire row
 - Row headers: `position: sticky; left: 0; z-index: 1`
-- Column headers: `position: relative` (vertical stickiness from parent `thead`)
-- **Never use dual-axis sticky on the corner** — it detaches from the header row
-- All header cells: explicit `background: #d4d0c8` (opaque — never transparent)
+- Column headers: `position: relative` (vertical stickiness from parent `thead`; `relative` required for absolutely-positioned resize handles)
+- **Never use dual-axis sticky on the corner** — it causes the corner to float independently, visually orphaned from column headers during vertical scroll
+- All header cells: explicit `background: #d4d0c8` (opaque — never transparent or inherited)
 
 ### Border Rule
 - **`border-collapse: separate; border-spacing: 0`** — never `collapse` with sticky headers
@@ -114,20 +124,7 @@ This UI is a faithful Windows 98 desktop application — not a styled website. E
 
 ---
 
-## E. Rendering System (Three.js)
-
-- Canvas lives inside `#canvas-container` within `#panel-right` — not in a separate window
-- `container: flex: 1; overflow: hidden; margin: 2px` — fills panel with bevel clearance
-- `renderer.domElement.style.display = 'block'` — prevents inline-element gap below canvas
-- **`renderer.setSize(w, h, false)`** — always pass `false` as third arg; `true` (default) writes inline `style.width/height` → browser reflow → canvas flash
-- **Size-change guard**: `if (w !== lastW || h !== lastH)` — skip `setSize` if dimensions haven't changed; `ResizeObserver` fires on sub-pixel changes so guard is essential
-- **No RAF throttle** — a continuous `animate()` loop competes for RAF slots, making `rafPending` flags ineffective; the guard is the only reliable throttle
-- `ResizeObserver` must be kept — it's responsible for reacting to splitter-driven container changes
-- Continuous render loop: `animate() → requestAnimationFrame(animate)` — unmodified; not event-driven
-
----
-
-## F. Architecture Decisions
+## E. Architecture Decisions
 
 - **No npm, bundlers, or build tools** — CDN-only dependencies
 - `type="module"` on all JS — must be served over HTTP (not `file://`)
@@ -151,6 +148,35 @@ js/
 
 - Entry points are thin wrappers — all logic in `ui/components/`
 - No inline scripts or behavior logic in `index.html`
+
+### UI State Model
+
+**Menu state** (in `menuSystem.js`):
+- `isMenuOpen: bool` — whether any menu is currently open
+- `activeMenu: element|null` — the currently open `.menu-item` element
+- `lastClosedAt: timestamp` — used to detect rapid reopen and suppress animation
+
+**Grid state** (implicit in `<col>` elements):
+- `colWidths[]` — initial px widths computed from ratio × container
+- After user resize: column width stored in `col.style.width`; table width in `table.style.width`
+- No external state object — DOM elements are the source of truth
+
+**Layout state** (CSS variables on `#panel-layout`):
+- `--left-width` — current left panel width in px; set by vertical splitter drag
+- `--bottom-height` — current bottom panel height in px; set by horizontal splitter drag
+
+---
+
+## F. Rendering System (Three.js)
+
+- Canvas lives inside `#canvas-container` within `#panel-right` — not in a separate window
+- `container: flex: 1; overflow: hidden; margin: 2px` — fills panel with bevel clearance
+- `renderer.domElement.style.display = 'block'` — prevents inline-element gap below canvas
+- **`renderer.setSize(w, h, false)`** — always pass `false` as third arg; `true` (default) writes inline `style.width/height` → browser reflow → canvas flash
+- **Size-change guard**: `if (w !== lastW || h !== lastH)` — skip `setSize` if dimensions haven't changed; `ResizeObserver` fires on sub-pixel changes so guard is essential
+- **Do NOT use RAF throttling for resize** — a continuous `animate()` loop shares the same RAF queue; `rafPending = true` is reset every frame by the render loop, so resize still executes on virtually every frame. The guard is the only reliable throttle.
+- `ResizeObserver` must be kept — it's responsible for reacting to splitter-driven container changes
+- Continuous render loop: `animate() → requestAnimationFrame(animate)` — unmodified; not event-driven
 
 ---
 

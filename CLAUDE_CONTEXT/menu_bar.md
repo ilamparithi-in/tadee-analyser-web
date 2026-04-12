@@ -1,5 +1,15 @@
 # Menu Bar & Toolbar — Observations
 
+## Menu State Machine
+
+- The menu system is a **state machine** — only one menu active at a time
+- Internal state object: `{ isMenuOpen, activeMenu, lastClosedAt }`
+  - `isMenuOpen`: guards hover-switch animation (no anim if already open)
+  - `activeMenu`: reference to the currently open `.menu-item` element
+  - `lastClosedAt`: timestamp; suppresses animation if reopen occurs before `RAPID_REOPEN_THRESHOLD_MS`
+- Closing triggers: click outside, opening a different menu item
+- Hover-switching always bypasses animation (independent of `lastClosedAt`)
+
 ## What 98.css provides natively
 - No `.menu-bar`, `.dropdown`, or `.toolbar` classes exist in 98.css
 - Button styles apply to toolbar buttons automatically
