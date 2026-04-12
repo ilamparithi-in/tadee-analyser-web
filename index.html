@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>98.css Demo</title>
+  <link rel="stylesheet" href="https://unpkg.com/98.css" />
+  <script type="importmap">
+    { "imports": { "three": "https://unpkg.com/three@0.163.0/build/three.module.js" } }
+  </script>
+  <style>
+    /* Disable smooth scrolling globally — Windows 98 rule: all scrolling must be instant */
+    html { scroll-behavior: auto; }
+    * { scroll-behavior: auto !important; }
+
+    /* Fix duplicate scrollbar arrows — hide the wrong sub-buttons at each end */
+    ::-webkit-scrollbar-button:vertical:start:increment,
+    ::-webkit-scrollbar-button:vertical:end:decrement,
+    ::-webkit-scrollbar-button:horizontal:start:increment,
+    ::-webkit-scrollbar-button:horizontal:end:decrement { display: none !important; }
+
+    body { background: teal; padding: 24px; display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+    .window { min-width: 280px; }
+    .field-row { margin-bottom: 6px; }
+
+    /* Menu bar */
+    .menu-bar { display: flex; background: silver; padding: 2px 0; border-bottom: 1px solid grey; position: relative; }
+    .menu-item { position: relative; }
+    .menu-item > button {
+      background: none; border: none; box-shadow: none; min-width: unset;
+      padding: 2px 6px; font-size: 11px; cursor: default;
+    }
+    .menu-item > button:focus { outline: none; }
+    .menu-item.open > button {
+      background: navy; color: #fff;
+      box-shadow: none;
+    }
+    /* Dropdown: .dropdown = cutout (overflow:hidden), .dropdown-inner = sliding card */
+    @keyframes slide-down {
+      from { transform: translateY(-100%); }
+      to   { transform: translateY(0); }
+    }
+    .dropdown {
+      display: none; position: absolute; top: 100%; left: 0;
+      background: silver; z-index: 100; min-width: 140px;
+      overflow: hidden; /* cutout — clips the sliding card */
+      box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #fff,
+                  inset -2px -2px grey, inset 2px 2px #dfdfdf;
+    }
+    .menu-item.open > .dropdown { display: block; }
+    .dropdown-inner { padding: 2px 0; }
+    .menu-item.open > .dropdown > .dropdown-inner {
+      animation: slide-down 100ms steps(8, end) both;
+      /* 'both' fill-mode: applies 'from' before first tick → card hidden before animation starts */
+    }
+    .menu-item.open > .dropdown > .dropdown-inner.animate-open {
+      animation: slide-down 100ms steps(8, end) both;
+    }
+    .menu-item.open > .dropdown > .dropdown-inner:not(.animate-open) {
+      animation: none;
+    }
+    .dropdown-item {
+      display: block; width: calc(100% - 4px); margin: 0 2px;
+      box-sizing: border-box; text-align: left;
+      background: none; border: none; box-shadow: none;
+      min-width: unset; padding: 3px 18px;
+      font-size: 11px; cursor: default;
+    }
+    .dropdown-item:hover { background: navy; color: #fff; box-shadow: none; }
+    .dropdown-item:disabled { color: grey; }
+    .dropdown-separator { border: none; border-top: 1px solid grey; margin: 3px 4px; }
+
+    /* Toolbar */
+    .toolbar {
+      display: flex; align-items: center; gap: 2px;
+      background: silver; padding: 2px 4px;
+      border-bottom: 1px solid grey;
+    }
+    .toolbar button { min-width: unset; padding: 2px 8px; font-size: 11px; }
+    .toolbar-separator { width: 1px; height: 22px; background: grey; margin: 0 4px; box-shadow: 1px 0 #fff; }
+
+    /* Panel layout */
+    #panel-layout {
+      --left-width: 260px;
+      --bottom-height: 80px;
+      display: flex; flex-direction: column;
+      height: 460px;
+    }
+    #panel-top-row {
+      display: flex; flex: 1; min-height: 40px; overflow: hidden;
+    }
+    #panel-left {
+      flex: 0 0 var(--left-width); min-width: 120px; overflow: hidden;
+      display: flex; flex-direction: column;
+      box-shadow: inset -1px -1px #fff, inset 1px 1px grey,
+                  inset -2px -2px #dfdfdf, inset 2px 2px #0a0a0a;
+      background: #fff;
+    }
+    #panel-right {
+      flex: 1; min-width: 100px; overflow: hidden;
+      display: flex; flex-direction: column;
+      box-shadow: inset -1px -1px #fff, inset 1px 1px grey,
+                  inset -2px -2px #dfdfdf, inset 2px 2px #0a0a0a;
+      background: #fff;
+    }
+    #panel-bottom {
+      flex: 0 0 var(--bottom-height); min-height: 40px; overflow: hidden;
+      display: flex; flex-direction: column;
+      box-shadow: inset -1px -1px #fff, inset 1px 1px grey,
+                  inset -2px -2px #dfdfdf, inset 2px 2px #0a0a0a;
+      background: #fff;
+    }
+    /* Inner scroll area — margin: 2px reserves bevel pixels so content never overlaps shadow */
+    .panel-content {
+      flex: 1; overflow: auto; padding: 6px;
+      margin: 2px;
+      box-sizing: border-box;
+    }
+    #results-scroll {
+      flex: 1; overflow: auto;
+      margin: 0 2px 2px 2px;
+    }
+    /* Splitters */
+    .splitter-v {
+      flex: 0 0 4px; cursor: col-resize;
+      background: silver;
+      box-shadow: inset -1px 0 #0a0a0a, inset 1px 0 #fff;
+    }
+    .splitter-h {
+      flex: 0 0 4px; cursor: row-resize;
+      background: silver;
+      box-shadow: inset 0 -1px #0a0a0a, inset 0 1px #fff;
+    }
+    .splitter-v:hover, .splitter-h:hover { background: #b0b0b0; }
+    /* Canvas inside geometry panel */
+    #canvas-container { flex: 1; overflow: hidden; margin: 2px; }
+    #canvas-container canvas { display: block; }
+    /* Results panel heading */
+    #results-heading {
+      flex: 0 0 auto; margin: 2px 2px 0 2px; padding: 1px 6px;
+      font-size: 11px; font-weight: bold; border-bottom: 1px solid grey;
+    }
+    /* Excel 97 grid */
+    #results-grid { display: inline-block; min-width: 100%; }
+    #eg-table { border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: 11px; font-family: inherit; }
+    #eg-table thead { position: sticky; top: 0; z-index: 2; }
+    .eg-corner, .eg-col-hdr {
+      background: #d4d0c8; border: 1px solid #808080; border-top: none; border-left: none;
+      text-align: center; padding: 1px 4px;
+      box-shadow: inset -1px -1px #808080, inset 1px 1px #fff;
+      user-select: none; white-space: nowrap; overflow: hidden;
+    }
+    .eg-corner { position: sticky; left: 0; z-index: 3; min-width: 30px; border-left: 1px solid #808080; }
+    .eg-col-hdr { position: relative; }
+    #eg-table thead tr th:first-child { border-top: 1px solid #808080; }
+    #eg-table thead tr th { border-top: 1px solid #808080; }
+    .eg-row-hdr {
+      background: #d4d0c8; border: 1px solid #808080; border-top: none; border-left: 1px solid #808080;
+      text-align: center; padding: 1px 4px;
+      box-shadow: inset -1px -1px #808080, inset 1px 1px #fff;
+      position: sticky; left: 0; z-index: 1;
+      user-select: none; white-space: nowrap;
+    }
+    #eg-table tbody tr:first-child .eg-row-hdr,
+    #eg-table tbody tr:first-child td { border-top: 1px solid #d0d0d0; }
+    #eg-table tbody td { border: 1px solid #d0d0d0; border-top: none; border-left: none; padding: 1px 4px; background: #fff; white-space: nowrap; }
+    #eg-table tbody td:first-child + td { border-left: 1px solid #d0d0d0; }
+    .eg-col-resize {
+      position: absolute; right: -2px; top: 0; bottom: 0; width: 5px;
+      cursor: col-resize; z-index: 1;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 1. Standard window -->
+  <div class="window" style="width: 300px;">
+    <div class="title-bar">
+      <div class="title-bar-text">Standard Window</div>
+      <div class="title-bar-controls">
+        <button aria-label="Minimize"></button>
+        <button aria-label="Maximize"></button>
+        <button aria-label="Close"></button>
+      </div>
+    </div>
+    <div class="window-body">
+      <p>Buttons</p>
+      <div class="field-row">
+        <button>OK</button>
+        <button>Cancel</button>
+        <button disabled>Disabled</button>
+      </div>
+
+      <p>Text Input</p>
+      <div class="field-row">
+        <input type="text" placeholder="Type here..." style="width:100%;" />
+      </div>
+
+      <p>Checkboxes</p>
+      <div class="field-row">
+        <input type="checkbox" id="chk1" checked />
+        <label for="chk1">Option A</label>
+      </div>
+      <div class="field-row">
+        <input type="checkbox" id="chk2" />
+        <label for="chk2">Option B</label>
+      </div>
+      <div class="field-row">
+        <input type="checkbox" id="chk3" disabled />
+        <label for="chk3">Disabled</label>
+      </div>
+
+      <p>Radio buttons</p>
+      <div class="field-row">
+        <input type="radio" id="r1" name="choice" checked />
+        <label for="r1">Choice 1</label>
+      </div>
+      <div class="field-row">
+        <input type="radio" id="r2" name="choice" />
+        <label for="r2">Choice 2</label>
+      </div>
+      <div class="field-row">
+        <input type="radio" id="r3" name="choice" disabled />
+        <label for="r3">Disabled</label>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Dialog box -->
+  <div class="window" style="width: 300px;">
+    <div class="title-bar">
+      <div class="title-bar-text">Confirm Delete</div>
+      <div class="title-bar-controls">
+        <button aria-label="Close"></button>
+      </div>
+    </div>
+    <div class="window-body">
+      <p>Are you sure you want to delete <strong>file.txt</strong>?</p>
+      <p>This action cannot be undone.</p>
+      <section class="field-row" style="justify-content:flex-end; gap:6px;">
+        <button>Yes</button>
+        <button>No</button>
+      </section>
+    </div>
+  </div>
+
+  <!-- 3. Outer window containing a nested window -->
+  <div class="window" style="width: 360px;">
+    <div class="title-bar">
+      <div class="title-bar-text">Outer Window</div>
+      <div class="title-bar-controls">
+        <button aria-label="Minimize"></button>
+        <button aria-label="Maximize"></button>
+        <button aria-label="Close"></button>
+      </div>
+    </div>
+    <div class="window-body">
+      <p>This window contains a nested child window.</p>
+
+      <!-- Nested window -->
+      <div class="window" style="width:100%; margin-top:8px;">
+        <div class="title-bar">
+          <div class="title-bar-text">Nested Window</div>
+          <div class="title-bar-controls">
+            <button aria-label="Close"></button>
+          </div>
+        </div>
+        <div class="window-body">
+          <div class="field-row">
+            <label for="nested-input">Name:</label>
+            <input type="text" id="nested-input" placeholder="Enter name" />
+          </div>
+          <div class="field-row">
+            <button>Submit</button>
+            <button disabled>Reset</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 5. Menu bar + toolbar window -->
+  <div class="window" style="width: 700px;">
+    <div class="title-bar">
+      <div class="title-bar-text">Notepad — Untitled</div>
+      <div class="title-bar-controls">
+        <button aria-label="Minimize"></button>
+        <button aria-label="Maximize"></button>
+        <button aria-label="Close"></button>
+      </div>
+    </div>
+
+    <nav class="menu-bar" id="menu-bar">
+      <div class="menu-item" data-menu="file">
+        <button>File</button>
+        <div class="dropdown">
+          <div class="dropdown-inner">
+            <button class="dropdown-item">New</button>
+            <button class="dropdown-item">Open…</button>
+            <button class="dropdown-item">Save</button>
+            <button class="dropdown-item">Save As…</button>
+            <hr class="dropdown-separator" />
+            <button class="dropdown-item">Print…</button>
+            <hr class="dropdown-separator" />
+            <button class="dropdown-item">Exit</button>
+          </div>
+        </div>
+      </div>
+      <div class="menu-item" data-menu="edit">
+        <button>Edit</button>
+        <div class="dropdown">
+          <div class="dropdown-inner">
+            <button class="dropdown-item" disabled>Undo</button>
+            <hr class="dropdown-separator" />
+            <button class="dropdown-item">Cut</button>
+            <button class="dropdown-item">Copy</button>
+            <button class="dropdown-item">Paste</button>
+            <button class="dropdown-item">Delete</button>
+            <hr class="dropdown-separator" />
+            <button class="dropdown-item">Select All</button>
+          </div>
+        </div>
+      </div>
+      <div class="menu-item" data-menu="view">
+        <button>View</button>
+        <div class="dropdown">
+          <div class="dropdown-inner">
+            <button class="dropdown-item">Toolbar</button>
+            <button class="dropdown-item">Status Bar</button>
+            <hr class="dropdown-separator" />
+            <button class="dropdown-item">Word Wrap</button>
+          </div>
+        </div>
+      </div>
+      <div class="menu-item" data-menu="tools">
+        <button>Tools</button>
+        <div class="dropdown">
+          <div class="dropdown-inner">
+            <button class="dropdown-item">Options…</button>
+            <button class="dropdown-item">Preferences…</button>
+          </div>
+        </div>
+      </div>
+      <div class="menu-item" data-menu="help">
+        <button>Help</button>
+        <div class="dropdown">
+          <div class="dropdown-inner">
+            <button class="dropdown-item">Help Topics</button>
+            <hr class="dropdown-separator" />
+            <button class="dropdown-item">About Notepad</button>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <div class="toolbar">
+      <button>New</button>
+      <button>Open</button>
+      <button>Save</button>
+      <div class="toolbar-separator"></div>
+      <button>Print</button>
+    </div>
+
+    <!-- Panel layout: left+right side by side, bottom full-width -->
+    <div class="window-body" style="padding: 4px;">
+      <div id="panel-layout">
+
+        <!-- Top row: left + right panels with vertical splitter -->
+        <div id="panel-top-row">
+          <div id="panel-left">
+            <div class="panel-content">
+            <form id="input-form" style="font-size:11px;">
+
+              <fieldset>
+                <legend>Electrical Parameters</legend>
+                <div class="field-row-stacked">
+                  <label for="line-length">Line length (km)</label>
+                  <input id="line-length" type="number" min="0" step="any" />
+                </div>
+                <div class="field-row-stacked" style="margin-top:4px;">
+                  <label for="load-mw">Receiving end load (MW)</label>
+                  <input id="load-mw" type="number" min="0" step="any" />
+                </div>
+                <div class="field-row-stacked" style="margin-top:4px;">
+                  <label for="power-factor">Power factor</label>
+                  <input id="power-factor" type="number" min="0" max="1" step="0.01" />
+                </div>
+                <div class="field-row-stacked" style="margin-top:4px;">
+                  <label for="voltage">Nominal voltage (kV)</label>
+                  <input id="voltage" type="number" min="0" step="any" />
+                </div>
+                <div class="field-row-stacked" style="margin-top:4px;">
+                  <label for="frequency">Frequency (Hz)</label>
+                  <input id="frequency" type="number" min="0" step="any" value="50" />
+                </div>
+                <div class="field-row-stacked" style="margin-top:4px;">
+                  <label for="system-type">System type</label>
+                  <select id="system-type">
+                    <option>Symmetrical</option>
+                    <option>Unsymmetrical</option>
+                  </select>
+                </div>
+              </fieldset>
+
+              <fieldset style="margin-top:6px;">
+                <legend>Geometry Parameters</legend>
+                <div class="field-row-stacked">
+                  <label for="phase-spacing">Phase spacing (m)</label>
+                  <input id="phase-spacing" type="number" min="0" step="any" />
+                </div>
+                <div class="field-row-stacked" style="margin-top:4px;">
+                  <label for="bundle-count">Bundle count</label>
+                  <select id="bundle-count">
+                    <option>2</option>
+                    <option>3</option>
+                    <option>4</option>
+                  </select>
+                </div>
+                <div class="field-row-stacked" style="margin-top:4px;">
+                  <label for="sub-spacing">Sub-conductor spacing (m)</label>
+                  <input id="sub-spacing" type="number" min="0" step="any" />
+                </div>
+              </fieldset>
+
+              <fieldset style="margin-top:6px;">
+                <legend>Conductor Parameters</legend>
+                <div class="field-row-stacked">
+                  <label for="strands">Number of strands</label>
+                  <input id="strands" type="number" min="1" step="1" />
+                </div>
+                <div class="field-row-stacked" style="margin-top:4px;">
+                  <label for="resistance">Resistance (Ω/km)</label>
+                  <input id="resistance" type="number" min="0" step="any" />
+                </div>
+              </fieldset>
+
+              <fieldset style="margin-top:6px;">
+                <legend>Model Selection</legend>
+                <div class="field-row-stacked">
+                  <label for="line-model">Line model</label>
+                  <select id="line-model">
+                    <option>Short</option>
+                    <option>Nominal π</option>
+                    <option>Distributed</option>
+                  </select>
+                </div>
+              </fieldset>
+
+            </form>
+            </div>
+          </div>
+          <div class="splitter-v" id="splitter-v"></div>
+          <div id="panel-right">
+            <div id="canvas-container"></div>
+          </div>
+        </div>
+
+        <!-- Horizontal splitter -->
+        <div class="splitter-h" id="splitter-h"></div>
+
+        <!-- Bottom: Results panel -->
+        <div id="panel-bottom">
+          <div id="results-heading">Results</div>
+          <div id="results-scroll">
+            <div id="results-grid"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <!-- Window-level status bar (98.css classes) -->
+    <div class="status-bar">
+      <p class="status-bar-field" id="app-status-bar">No calculation performed</p>
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+  <script type="module" src="js/menu.js"></script>
+  <script type="module" src="js/panels.js"></script>
+  <script type="module" src="js/grid.js"></script>
+</body>
+</html>
