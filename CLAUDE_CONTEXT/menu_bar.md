@@ -12,23 +12,41 @@
 - Hover highlight on dropdown items — must manually override button styles
 - Toolbar separator — custom `div` with grey border + white shadow
 
-## Menu Animation Model (cutout + sliding card)
+## Menu Animation Model (cutout + sliding card) — CORRECTED
 
-- `.dropdown` = the cutout: `overflow: hidden`, sized to full final dimensions, `display: none` when closed
-- `.dropdown-inner` = the card: slides from `translateY(-100%)` to `translateY(0)` inside the cutout
+**Rule**: the outer element is a transparent `overflow: hidden` clipper with **no background and no bevel**. The inner element is the actual styled box (background + bevel + content) that animates with `translateY`. This ensures:
+- Nothing bleeds outside the clipper bounds (e.g. over the taskbar or adjacent OS chrome)
+- The whole box — background, bevel, and text — moves together as one unit
+
+**Do NOT put background/bevel on the clipper** — it would render statically while only the content moves, which looks wrong.
+
+**Do NOT animate with `clip-path`** — `clip-path` reveals the content in place; text stays stationary while the clip region changes, which also looks wrong.
+
+| Element | Role | Has background/bevel? | Animates? |
+|---|---|---|---|
+| Outer (`.dropdown`, `#start-menu`) | `overflow: hidden` clipper | ❌ No | ❌ No |
+| Inner (`.dropdown-inner`, `#start-menu-inner`) | Styled card | ✅ Yes | ✅ Yes |
+
 - `animation-fill-mode: both` → applies `from` keyframe before first tick so card is invisible at t=0
 - `steps(8, end)` gives discrete row-reveal matching Win98 style
-- The bevel (`inset box-shadow`) stays on `.dropdown` (the cutout) — always full-size, not animated
+- Force animation restart with `void el.offsetWidth` reflow before re-adding the class
 
-## Menu bar vs context menu animation
+## Menu bar dropdown
 
-| | Menu bar dropdown | Context menu (right-click) |
-|---|---|---|
-| Cutout position | Below the menu bar item | At click coordinates |
-| Card start position | Above cutout (translateY -100%) | Bottom-right of card at cutout top-left |
-| Direction | Straight down | Diagonal down-right |
+- Cutout (`.dropdown`): `overflow: hidden`, `display: none` when closed, no background
+- Card (`.dropdown-inner`): background + bevel, slides `translateY(-100%) → translateY(0)` (down into view)
 
-Context menu diagonal animation would require animating both `translateX(-100%)` and `translateY(-100%)` simultaneously. This is achievable with `translate(-100%, -100%)` → `translate(0, 0)`, but it is **not currently implemented** (no context menu exists yet).
+## Start menu
+
+- Cutout (`#start-menu`): `position: fixed; bottom: 28px; overflow: hidden`, no background
+- Card (`#start-menu-inner`): background + bevel, slides `translateY(100%) → translateY(0)` (up into view)
+- `animate-open` class on outer triggers `#start-menu.animate-open #start-menu-inner { animation: ... }`
+
+## Context menu (right-click) — not yet implemented
+
+- Cutout: positioned at click coordinates, `overflow: hidden`, no background/bevel
+- Card: background + bevel, slides diagonally `translate(-100%, -100%) → translate(0, 0)` (diagonal down-right into view)
+- Same cutout+card pattern — outer clips, inner animates
 
 ## Rapid Interaction Handling
 

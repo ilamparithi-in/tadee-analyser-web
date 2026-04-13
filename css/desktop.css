@@ -1,0 +1,120 @@
+/* Disable smooth scrolling globally — Windows 98 rule: all scrolling must be instant */
+html { scroll-behavior: auto; }
+* { scroll-behavior: auto !important; }
+
+/* Fix duplicate scrollbar arrows */
+::-webkit-scrollbar-button:vertical:start:increment,
+::-webkit-scrollbar-button:vertical:end:decrement,
+::-webkit-scrollbar-button:horizontal:start:increment,
+::-webkit-scrollbar-button:horizontal:end:decrement { display: none !important; }
+
+body { background: teal; margin: 0; padding: 0; overflow: hidden; height: 100vh; }
+
+/* Desktop viewport — fills all space above taskbar */
+#viewport { position: relative; width: 100%; height: calc(100vh - 28px); overflow: hidden; }
+/* Windows are positioned by windowManager.js; hidden until JS assigns coordinates */
+/* flex-direction:column lets the status bar anchor at the bottom when window is resized */
+#viewport > .window { position: absolute; visibility: hidden; box-sizing: border-box; display: flex; flex-direction: column; }
+.window { min-width: 160px; }
+/* window-body grows to fill all space between title-bar+toolbars and status-bar */
+.window-body { flex: 1 1 auto; overflow: hidden; min-height: 0; }
+/* Minimized window: title text truncates with ellipsis — never wraps */
+.minimized .title-bar-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px; }
+
+/* ── Taskbar ─────────────────────────────────────────────────────────── */
+#taskbar {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: 28px;
+  background: silver;
+  box-shadow: inset 0 1px #fff, inset 0 2px #dfdfdf;
+  display: flex;
+  align-items: center;
+  padding: 2px;
+  gap: 2px;
+  z-index: 1000;
+  box-sizing: border-box;
+}
+
+#start-btn { height: 22px; font-weight: bold; padding: 0 8px; }
+
+#task-area { flex: 1; }
+
+#clock {
+  font-family: 'Pixelated MS Sans Serif', Arial;
+  font-size: 11px;
+  padding: 0 6px;
+  background: silver;
+  box-shadow: inset -1px -1px #fff, inset 1px 1px grey;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+/* ── Start menu ──────────────────────────────────────────────────────── */
+@keyframes start-menu-slide {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+/* Outer element: transparent overflow clipper — anchored above taskbar, clips translateY bleed */
+#start-menu {
+  position: fixed;
+  bottom: 28px;
+  left: 0;
+  min-width: 160px;
+  z-index: 1001;
+  overflow: hidden;
+}
+
+#start-menu[hidden] { display: none; }
+
+/* Inner element: the actual styled box — slides up within the clipper */
+#start-menu-inner {
+  background: silver;
+  box-shadow: inset -1px -1px #888, inset 1px 1px #fff,
+              inset -2px -2px #c7c7c7, inset 2px 2px #dfdfdf;
+  padding: 2px;
+}
+
+#start-menu.animate-open #start-menu-inner {
+  animation: start-menu-slide 100ms steps(8, end) both;
+}
+
+.start-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 4px 16px;
+  font-size: 11px;
+  cursor: default;
+  min-width: unset;
+  box-sizing: border-box;
+}
+
+.start-menu-item:hover { background: navy; color: #fff; box-shadow: none; }
+.start-menu-item:active { box-shadow: none; transform: none; }
+
+.start-menu-separator { border: none; border-top: 1px solid grey; margin: 2px 4px; }
+
+/* ── Window manager ────────────────────────────────────────────────── */
+/* Win98 drag/resize outline */
+#wm-outline {
+  display: none; position: absolute; pointer-events: none; z-index: 9999;
+  box-sizing: border-box; border: 2px dotted #000;
+}
+/* Resize handles — thin strips on window edges/corners */
+.wm-resize-handle { position: absolute; z-index: 10; }
+.wm-resize-handle[data-dir="n"]  { top: 0;    left: 6px;  right: 6px;  height: 4px; cursor: n-resize; }
+.wm-resize-handle[data-dir="s"]  { bottom: 0; left: 6px;  right: 6px;  height: 4px; cursor: s-resize; }
+.wm-resize-handle[data-dir="e"]  { right: 0;  top: 6px;   bottom: 6px; width: 4px;  cursor: e-resize; }
+.wm-resize-handle[data-dir="w"]  { left: 0;   top: 6px;   bottom: 6px; width: 4px;  cursor: w-resize; }
+.wm-resize-handle[data-dir="ne"] { top: 0;    right: 0;   width: 8px; height: 8px; cursor: ne-resize; }
+.wm-resize-handle[data-dir="nw"] { top: 0;    left: 0;    width: 8px; height: 8px; cursor: nw-resize; }
+.wm-resize-handle[data-dir="se"] { bottom: 0; right: 0;   width: 8px; height: 8px; cursor: se-resize; }
+.wm-resize-handle[data-dir="sw"] { bottom: 0; left: 0;    width: 8px; height: 8px; cursor: sw-resize; }
+.field-row { margin-bottom: 6px; }

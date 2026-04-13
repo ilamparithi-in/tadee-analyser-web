@@ -3,320 +3,37 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>98.css Demo</title>
+  <title>Tadee Analyser</title>
   <link rel="stylesheet" href="https://unpkg.com/98.css" />
+  <link rel="stylesheet" href="css/desktop.css" />
   <script type="importmap">
     { "imports": { "three": "https://unpkg.com/three@0.163.0/build/three.module.js" } }
   </script>
-  <style>
-    /* Disable smooth scrolling globally — Windows 98 rule: all scrolling must be instant */
-    html { scroll-behavior: auto; }
-    * { scroll-behavior: auto !important; }
-
-    /* Fix duplicate scrollbar arrows — hide the wrong sub-buttons at each end */
-    ::-webkit-scrollbar-button:vertical:start:increment,
-    ::-webkit-scrollbar-button:vertical:end:decrement,
-    ::-webkit-scrollbar-button:horizontal:start:increment,
-    ::-webkit-scrollbar-button:horizontal:end:decrement { display: none !important; }
-
-    body { background: teal; margin: 0; padding: 0; overflow: hidden; height: 100vh; }
-    /* Viewport: reference frame for all absolutely-positioned windows */
-    #viewport { position: relative; width: 100%; height: 100%; overflow: hidden; }
-    /* Windows are positioned by windowManager.js; hidden until JS assigns coordinates */
-    /* flex-direction:column lets the status bar anchor at the bottom when window is resized */
-    #viewport > .window { position: absolute; visibility: hidden; box-sizing: border-box; display: flex; flex-direction: column; }
-    .window { min-width: 160px; }
-    /* window-body grows to fill all space between title-bar+toolbars and status-bar */
-    .window-body { flex: 1 1 auto; overflow: hidden; min-height: 0; }
-    /* Minimized window: title text truncates with ellipsis — never wraps */
-    .minimized .title-bar-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px; }
-
-    /* Win98 drag/resize outline */
-    #wm-outline {
-      display: none; position: absolute; pointer-events: none; z-index: 9999;
-      box-sizing: border-box; border: 2px dotted #000;
-    }
-    /* Resize handles — thin strips on window edges/corners */
-    .wm-resize-handle { position: absolute; z-index: 10; }
-    .wm-resize-handle[data-dir="n"]  { top: 0;    left: 6px;  right: 6px;  height: 4px; cursor: n-resize; }
-    .wm-resize-handle[data-dir="s"]  { bottom: 0; left: 6px;  right: 6px;  height: 4px; cursor: s-resize; }
-    .wm-resize-handle[data-dir="e"]  { right: 0;  top: 6px;   bottom: 6px; width: 4px;  cursor: e-resize; }
-    .wm-resize-handle[data-dir="w"]  { left: 0;   top: 6px;   bottom: 6px; width: 4px;  cursor: w-resize; }
-    .wm-resize-handle[data-dir="ne"] { top: 0;    right: 0;   width: 8px; height: 8px; cursor: ne-resize; }
-    .wm-resize-handle[data-dir="nw"] { top: 0;    left: 0;    width: 8px; height: 8px; cursor: nw-resize; }
-    .wm-resize-handle[data-dir="se"] { bottom: 0; right: 0;   width: 8px; height: 8px; cursor: se-resize; }
-    .wm-resize-handle[data-dir="sw"] { bottom: 0; left: 0;    width: 8px; height: 8px; cursor: sw-resize; }
-    .field-row { margin-bottom: 6px; }
-
-    /* Menu bar */
-    .menu-bar { display: flex; background: silver; padding: 2px 0; border-bottom: 1px solid grey; position: relative; }
-    .menu-item { position: relative; }
-    .menu-item > button {
-      background: none; border: none; box-shadow: none; min-width: unset;
-      padding: 2px 6px; font-size: 11px; cursor: default;
-    }
-    .menu-item > button:focus { outline: none; }
-    .menu-item.open > button {
-      background: navy; color: #fff;
-      box-shadow: none;
-    }
-    /* Dropdown: .dropdown = cutout (overflow:hidden), .dropdown-inner = sliding card */
-    @keyframes slide-down {
-      from { transform: translateY(-100%); }
-      to   { transform: translateY(0); }
-    }
-    .dropdown {
-      display: none; position: absolute; top: 100%; left: 0;
-      background: silver; z-index: 100; min-width: 140px;
-      overflow: hidden; /* cutout — clips the sliding card */
-      box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #fff,
-                  inset -2px -2px grey, inset 2px 2px #dfdfdf;
-    }
-    .menu-item.open > .dropdown { display: block; }
-    .dropdown-inner { padding: 2px 0; }
-    .menu-item.open > .dropdown > .dropdown-inner {
-      animation: slide-down 100ms steps(8, end) both;
-      /* 'both' fill-mode: applies 'from' before first tick → card hidden before animation starts */
-    }
-    .menu-item.open > .dropdown > .dropdown-inner.animate-open {
-      animation: slide-down 100ms steps(8, end) both;
-    }
-    .menu-item.open > .dropdown > .dropdown-inner:not(.animate-open) {
-      animation: none;
-    }
-    .dropdown-item {
-      display: block; width: calc(100% - 4px); margin: 0 2px;
-      box-sizing: border-box; text-align: left;
-      background: none; border: none; box-shadow: none;
-      min-width: unset; padding: 3px 18px;
-      font-size: 11px; cursor: default;
-    }
-    .dropdown-item:hover { background: navy; color: #fff; box-shadow: none; }
-    .dropdown-item:disabled { color: grey; }
-    .dropdown-separator { border: none; border-top: 1px solid grey; margin: 3px 4px; }
-
-    /* Toolbar */
-    .toolbar {
-      display: flex; align-items: center; gap: 2px;
-      background: silver; padding: 2px 4px;
-      border-bottom: 1px solid grey;
-    }
-    .toolbar button { min-width: unset; padding: 2px 8px; font-size: 11px; }
-    .toolbar-separator { width: 1px; height: 22px; background: grey; margin: 0 4px; box-shadow: 1px 0 #fff; }
-
-    /* Panel layout */
-    #panel-layout {
-      --left-width: 260px;
-      --bottom-height: 80px;
-      display: flex; flex-direction: column;
-      height: 100%;
-    }
-    #panel-top-row {
-      display: flex; flex: 1; min-height: 40px; overflow: hidden;
-    }
-    #panel-left {
-      flex: 0 0 var(--left-width); min-width: 120px; overflow: hidden;
-      display: flex; flex-direction: column;
-      box-shadow: inset -1px -1px #fff, inset 1px 1px grey,
-                  inset -2px -2px #dfdfdf, inset 2px 2px #0a0a0a;
-      background: #fff;
-    }
-    #panel-right {
-      flex: 1; min-width: 100px; overflow: hidden;
-      display: flex; flex-direction: column;
-      box-shadow: inset -1px -1px #fff, inset 1px 1px grey,
-                  inset -2px -2px #dfdfdf, inset 2px 2px #0a0a0a;
-      background: #fff;
-    }
-    #panel-bottom {
-      flex: 0 0 var(--bottom-height); min-height: 40px; overflow: hidden;
-      display: flex; flex-direction: column;
-      box-shadow: inset -1px -1px #fff, inset 1px 1px grey,
-                  inset -2px -2px #dfdfdf, inset 2px 2px #0a0a0a;
-      background: #fff;
-    }
-    /* Inner scroll area — margin: 2px reserves bevel pixels so content never overlaps shadow */
-    .panel-content {
-      flex: 1; overflow: auto; padding: 6px;
-      margin: 2px;
-      box-sizing: border-box;
-    }
-    #results-scroll {
-      flex: 1; overflow: auto;
-      margin: 0 2px 2px 2px;
-    }
-    /* Splitters */
-    .splitter-v {
-      flex: 0 0 4px; cursor: col-resize;
-      background: silver;
-      box-shadow: inset -1px 0 #0a0a0a, inset 1px 0 #fff;
-    }
-    .splitter-h {
-      flex: 0 0 4px; cursor: row-resize;
-      background: silver;
-      box-shadow: inset 0 -1px #0a0a0a, inset 0 1px #fff;
-    }
-    .splitter-v:hover, .splitter-h:hover { background: #b0b0b0; }
-    /* Canvas inside geometry panel */
-    #canvas-container { flex: 1; overflow: hidden; margin: 2px; }
-    #canvas-container canvas { display: block; }
-    /* Results panel heading */
-    #results-heading {
-      flex: 0 0 auto; margin: 2px 2px 0 2px; padding: 1px 6px;
-      font-size: 11px; font-weight: bold; border-bottom: 1px solid grey;
-    }
-    /* Excel 97 grid */
-    #results-grid { display: inline-block; min-width: 100%; }
-    #eg-table { border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: 11px; font-family: inherit; }
-    #eg-table thead { position: sticky; top: 0; z-index: 2; }
-    .eg-corner, .eg-col-hdr {
-      background: #d4d0c8; border: 1px solid #808080; border-top: none; border-left: none;
-      text-align: center; padding: 1px 4px;
-      box-shadow: inset -1px -1px #808080, inset 1px 1px #fff;
-      user-select: none; white-space: nowrap; overflow: hidden;
-    }
-    .eg-corner { position: sticky; left: 0; z-index: 3; min-width: 30px; border-left: 1px solid #808080; }
-    .eg-col-hdr { position: relative; }
-    #eg-table thead tr th:first-child { border-top: 1px solid #808080; }
-    #eg-table thead tr th { border-top: 1px solid #808080; }
-    .eg-row-hdr {
-      background: #d4d0c8; border: 1px solid #808080; border-top: none; border-left: 1px solid #808080;
-      text-align: center; padding: 1px 4px;
-      box-shadow: inset -1px -1px #808080, inset 1px 1px #fff;
-      position: sticky; left: 0; z-index: 1;
-      user-select: none; white-space: nowrap;
-    }
-    #eg-table tbody tr:first-child .eg-row-hdr,
-    #eg-table tbody tr:first-child td { border-top: 1px solid #d0d0d0; }
-    #eg-table tbody td { border: 1px solid #d0d0d0; border-top: none; border-left: none; padding: 1px 4px; background: #fff; white-space: nowrap; }
-    #eg-table tbody td:first-child + td { border-left: 1px solid #d0d0d0; }
-    .eg-col-resize {
-      position: absolute; right: -2px; top: 0; bottom: 0; width: 5px;
-      cursor: col-resize; z-index: 1;
-    }
-  </style>
 </head>
 <body>
-<div id="viewport">
 
-  <!-- 1. Standard window -->
-  <div class="window" style="width: 300px;">
-    <div class="title-bar">
-      <div class="title-bar-text">Standard Window</div>
-      <div class="title-bar-controls">
-        <button aria-label="Minimize"></button>
-        <button aria-label="Maximize"></button>
-        <button aria-label="Close"></button>
-      </div>
-    </div>
-    <div class="window-body">
-      <p>Buttons</p>
-      <div class="field-row">
-        <button>OK</button>
-        <button>Cancel</button>
-        <button disabled>Disabled</button>
-      </div>
+<div id="viewport"></div>
 
-      <p>Text Input</p>
-      <div class="field-row">
-        <input type="text" placeholder="Type here..." style="width:100%;" />
-      </div>
+<!-- Taskbar — OS-level UI, outside #viewport -->
+<div id="taskbar">
+  <button id="start-btn">Start</button>
+  <div id="task-area"></div>
+  <div id="clock"></div>
+</div>
 
-      <p>Checkboxes</p>
-      <div class="field-row">
-        <input type="checkbox" id="chk1" checked />
-        <label for="chk1">Option A</label>
-      </div>
-      <div class="field-row">
-        <input type="checkbox" id="chk2" />
-        <label for="chk2">Option B</label>
-      </div>
-      <div class="field-row">
-        <input type="checkbox" id="chk3" disabled />
-        <label for="chk3">Disabled</label>
-      </div>
-
-      <p>Radio buttons</p>
-      <div class="field-row">
-        <input type="radio" id="r1" name="choice" checked />
-        <label for="r1">Choice 1</label>
-      </div>
-      <div class="field-row">
-        <input type="radio" id="r2" name="choice" />
-        <label for="r2">Choice 2</label>
-      </div>
-      <div class="field-row">
-        <input type="radio" id="r3" name="choice" disabled />
-        <label for="r3">Disabled</label>
-      </div>
-    </div>
+<!-- Start menu — positioned above taskbar -->
+<div id="start-menu" hidden>
+  <div id="start-menu-inner">
+    <button class="start-menu-item">Programs</button>
+    <button class="start-menu-item">Documents</button>
+    <button class="start-menu-item">Settings</button>
+    <hr class="start-menu-separator" />
+    <button class="start-menu-item">Shut Down</button>
   </div>
+</div>
 
-  <!-- 2. Dialog box -->
-  <div class="window" style="width: 300px;">
-    <div class="title-bar">
-      <div class="title-bar-text">Confirm Delete</div>
-      <div class="title-bar-controls">
-        <button aria-label="Close"></button>
-      </div>
-    </div>
-    <div class="window-body">
-      <p>Are you sure you want to delete <strong>file.txt</strong>?</p>
-      <p>This action cannot be undone.</p>
-      <section class="field-row" style="justify-content:flex-end; gap:6px;">
-        <button>Yes</button>
-        <button>No</button>
-      </section>
-    </div>
-  </div>
+<script type="module" src="js/ui/components/taskbar.js"></script>
 
-  <!-- 3. Outer window containing a nested window -->
-  <div class="window" style="width: 360px;">
-    <div class="title-bar">
-      <div class="title-bar-text">Outer Window</div>
-      <div class="title-bar-controls">
-        <button aria-label="Minimize"></button>
-        <button aria-label="Maximize"></button>
-        <button aria-label="Close"></button>
-      </div>
-    </div>
-    <div class="window-body">
-      <p>This window contains a nested child window.</p>
-
-      <!-- Nested window -->
-      <div class="window" style="width:100%; margin-top:8px;">
-        <div class="title-bar">
-          <div class="title-bar-text">Nested Window</div>
-          <div class="title-bar-controls">
-            <button aria-label="Close"></button>
-          </div>
-        </div>
-        <div class="window-body">
-          <div class="field-row">
-            <label for="nested-input">Name:</label>
-            <input type="text" id="nested-input" placeholder="Enter name" />
-          </div>
-          <div class="field-row">
-            <button>Submit</button>
-            <button disabled>Reset</button>
-          </div>
-        </div>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- Notepad window is created programmatically by js/notepad.js -->
-
-</div><!-- /#viewport -->
-
-  <!-- Execution order matters: windowManager registers static windows first,
-       notepad.js creates Notepad DOM next, then menu/panels/grid query that DOM -->
-  <script type="module" src="js/windowManager.js"></script>
-  <script type="module" src="js/notepad.js"></script>
-  <script type="module" src="js/main.js"></script>
-  <script type="module" src="js/menu.js"></script>
-  <script type="module" src="js/panels.js"></script>
-  <script type="module" src="js/grid.js"></script>
 </body>
 </html>
+

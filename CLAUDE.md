@@ -72,3 +72,46 @@ Without flex, `.window-body` stays content-sized and the status-bar floats in th
 Project-specific rules have been extracted into reusable principles in:
 
 `CLAUDE_CONTEXT/generalized/` — 7 files (A–G) covering UI design, interaction patterns, layout, data display, rendering integration, architecture, and debugging. Each rule includes a general principle + project example. Applicable to signal processing UIs, engineering tools, and visualization dashboards.
+
+---
+
+## Phase: Desktop Foundation (branch: feature/desktop-foundation)
+
+### Taskbar
+
+- Taskbar is OS-level UI — lives **outside** `#viewport` in HTML
+- `#viewport` height is `calc(100vh - 28px)` to leave room for the taskbar
+- Taskbar: `position: fixed; bottom: 0; height: 28px`
+- Start button on left, `#task-area` (flex: 1) in center, clock on right
+
+### Start Menu
+
+- `position: fixed; bottom: 28px; left: 0` — anchored just above taskbar
+- Toggle: `hidden` attribute added/removed; `animate-open` class triggers animation
+- Outside-click closes menu via `document.addEventListener('click')` — `e.stopPropagation()` on menu prevents self-close
+- Clicking a menu item closes the menu immediately (no animation on close)
+- `:active` style is suppressed on `.start-menu-item` — no press animation
+
+### Start Menu Animation Rule
+
+- **Use the cutout+card pattern for popup menus anchored to OS chrome** — NOT `clip-path`, NOT bare `translateY`
+- `translateY` on the outer element bleeds over adjacent OS elements (e.g. taskbar)
+- `clip-path` reveals in place — text stays stationary while the clip region changes; looks wrong
+- Correct approach: outer container = transparent `overflow: hidden` clipper (no background/bevel); inner element = the actual styled box (background + bevel + content) that animates with `translateY(100%) → translateY(0)`
+- The clipper's bottom edge sits at the taskbar; `overflow: hidden` prevents any translateY bleed below it
+- Bottom-to-top reveal (menu grows upward from taskbar):
+  ```css
+  @keyframes start-menu-slide {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
+  }
+  #start-menu.animate-open #start-menu-inner {
+    animation: start-menu-slide 100ms steps(8, end) both;
+  }
+  ```
+- `steps(8, end)` for discrete Win98-style row reveal
+- Force animation restart with `void el.offsetWidth` reflow before re-adding class to outer element
+
+### CSS File
+
+- All desktop-level CSS lives in `css/desktop.css`, loaded after `98.css`

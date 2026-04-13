@@ -1,5 +1,8 @@
 # Project Architecture
 
+> **Phase**: Desktop Foundation (branch: `feature/desktop-foundation`)
+> Previous branch was a training playground — all code rewritten from scratch.
+
 - Single HTML entry point: `index.html`
 - JS lives in `/js/` directory
 - No framework — vanilla HTML/CSS/JS only
@@ -12,43 +15,35 @@
   { "imports": { "three": "https://unpkg.com/three@0.163.0/build/three.module.js" } }
   ```
 
+## OS-Level vs Application UI
+
+- **OS-level UI** (taskbar, start menu, system clock) lives **outside** `#viewport` in the HTML
+- **Application UI** (windows, panels) lives inside `#viewport`
+- This separation must be maintained — never put taskbar/system elements inside `#viewport`
+
+## Taskbar Interaction Rules
+
+- Start button toggles start menu (click again closes, no animation)
+- Clicking outside the start menu closes it
+- `e.stopPropagation()` prevents outside-click listener from triggering on start-menu clicks
+- Clock updates every second via `setInterval`
+
 ## Custom UI Component Rule
 
 - Any custom behavior (menus, panels, animations, etc.) must live in reusable modules, not inline scripts or HTML
 - All custom JS lives under `/js/ui/components/`
-- Entry points (e.g. `menu.js`) are thin wrappers that import and call module functions
+- OS-level components (taskbar etc.) are loaded **directly** from `index.html` — no thin wrapper needed
 
-## File Structure
+## File Structure (current — desktop-foundation phase)
 ```
 tadee-analyser-web/
-├── index.html                        (static windows only; Notepad is JS-created)
+├── index.html                        (desktop shell: viewport + taskbar + start menu)
 ├── CLAUDE.md
 ├── CLAUDE_CONTEXT/
-│   ├── ui_rules.md
-│   ├── scrolling_behavior.md
-│   ├── 98css_limitations.md
-│   ├── project_architecture.md
-│   ├── panel_layout.md
-│   ├── menu_bar.md
-│   ├── window_manager.md
-│   └── window_creation.md
 └── js/
-    ├── main.js                       (Three.js canvas init + resize)
-    ├── menu.js                       (thin entry → menuSystem.js)
-    ├── panels.js                     (thin entry → splitter logic)
-    ├── grid.js                       (thin entry → grid.js component)
-    ├── windowManager.js              (thin entry → initWindowManager on static windows)
-    ├── notepad.js                    (thin entry → initNotepadWindow)
     └── ui/
-        ├── components/
-        │   ├── windowManager.js      (drag/resize/minimize/maximize/close — exports initWindowManager, addWindow)
-        │   ├── createWindow.js       (window factory — exports createWindow, openWindow)
-        │   ├── menuSystem.js
-        │   ├── timingConfig.js
-        │   ├── animationUtils.js
-        │   └── grid.js
-        └── windows/
-            └── notepad.js            (Notepad window — menu, toolbar, panel layout, status bar)
+        └── components/
+            └── taskbar.js            (OS-level: start button, menu toggle, outside-click, clock)
 ```
 
 ## Script Execution Order in index.html
