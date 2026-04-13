@@ -10,9 +10,42 @@ html { scroll-behavior: auto; }
 ::-webkit-scrollbar-button:horizontal:start:increment,
 ::-webkit-scrollbar-button:horizontal:end:decrement { display: none !important; }
 
-body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal; }
+body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal; font-family: 'Pixelated MS Sans Serif', sans-serif; }
 #viewport { position: relative; width: 100%; height: calc(100% - var(--taskbar-h)); overflow: hidden; }
 #viewport > .window { position: absolute; visibility: hidden; box-sizing: border-box; }
+
+/* ─── Desktop ─────────────────────────────────────────────────────────────── */
+#desktop {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 8px; padding: 10px;
+  z-index: 0;
+  pointer-events: auto;
+}
+.desktop-icon {
+  display: flex; flex-direction: column; align-items: center;
+  width: 72px; gap: 4px;
+  padding: 4px;
+  cursor: default;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.desktop-icon.selected .desktop-icon-img  { outline: 1px dotted #fff; background: navy; }
+.desktop-icon.selected .desktop-icon-label { background: navy; color: #fff; outline: 1px dotted #fff; outline-offset: -1px; }
+.desktop-icon-img {
+  width: 32px; height: 32px;
+  background: silver;
+  box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #fff,
+              inset -2px -2px grey,   inset 2px 2px #dfdfdf;
+  flex-shrink: 0;
+}
+.desktop-icon-label {
+  font-size: 11px; color: #fff; text-align: center;
+  text-shadow: 1px 1px #000;
+  word-break: break-word; line-height: 1.2;
+  max-width: 72px;
+}
 /* Override min-width for minimized windows so the animate can shrink them */
 .window.minimized { min-width: 0 !important; min-height: 0 !important; }
 /* Minimized title text ellipsis */
@@ -48,8 +81,7 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
   box-shadow: inset -1px -1px #fff, inset 1px 1px #808080;
 }
 
-/* ─── WM windows ──────────────────────────────────────────────────────────── */
-.wm-resize-handle { position: absolute; z-index: 1; }
+/* ─── WM windows ──────────────────────────────────────────────────────────── */.title-bar { cursor: default; -webkit-user-select: none; user-select: none; }.wm-resize-handle { position: absolute; z-index: 1; }
 .wm-resize-handle[data-dir="n"]  { top: 0;    left: 8px;    right: 8px;   height: 4px; cursor: n-resize;  }
 .wm-resize-handle[data-dir="s"]  { bottom: 0; left: 8px;    right: 8px;   height: 4px; cursor: s-resize;  }
 .wm-resize-handle[data-dir="e"]  { top: 8px;  bottom: 8px;  right: 0;     width:  4px; cursor: e-resize;  }

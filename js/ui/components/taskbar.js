@@ -8,9 +8,19 @@
  */
 export function initTaskbar(taskbarEl) {
   const startBtn = taskbarEl.querySelector('#start-btn');
-  if (!startBtn) return;
+  if (startBtn) {
+    startBtn.addEventListener('click', () => {
+      // Start menu not yet implemented
+    });
+  }
 
-  startBtn.addEventListener('click', () => {
-    // Start menu not yet implemented
-  });
+  const clock = taskbarEl.querySelector('#taskbar-clock');
+  if (clock) {
+    const tick = () => {
+      const now = new Date();
+      clock.textContent = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    };
+    tick();
+    setInterval(tick, 1000);
+  }
 }

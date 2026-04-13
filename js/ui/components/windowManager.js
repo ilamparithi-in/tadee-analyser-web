@@ -51,6 +51,16 @@ function _getOutline() {
 export function initWindowManager(viewport) {
   _viewport = viewport;
   viewport.querySelectorAll(':scope > .window').forEach(win => _register(win));
+
+  // Deactivate all windows when clicking outside any window
+  viewport.addEventListener('mousedown', e => {
+    if (!e.target.closest('.window')) {
+      registry.forEach((_, w) => {
+        const tb = w.querySelector('.title-bar');
+        if (tb) tb.classList.add('inactive');
+      });
+    }
+  });
 }
 
 /**
@@ -60,6 +70,21 @@ export function initWindowManager(viewport) {
  * @param {HTMLElement} winEl
  * @param {HTMLElement} viewportEl
  */
+/**
+ * Bring a window to the front. Restores it first if minimized.
+ * @param {HTMLElement} winEl
+ */
+export function raiseWindow(winEl) {
+  const s = registry.get(winEl);
+  if (!s) return;
+  if (s.isHidden) {
+    s.isHidden = false;
+    winEl.style.visibility = 'visible';
+  }
+  if (s.isMinimized) _restore(winEl);
+  _focus(winEl);
+}
+
 export function addWindow(winEl, viewportEl) {
   if (!_viewport) _viewport = viewportEl;
   if (!viewportEl.contains(winEl)) viewportEl.appendChild(winEl);
@@ -93,12 +118,15 @@ function _register(win) {
   const y = CASCADE_START_Y + _cascade * CASCADE_STEP;
   _cascade++;
 
+  const startHidden = win.dataset.startHidden === 'true';
+
   win.style.left       = x + 'px';
   win.style.top        = y + 'px';
-  win.style.visibility = 'visible'; // prevent flash at 0,0
+  win.style.visibility = startHidden ? 'hidden' : 'visible';
 
   const state = {
     x, y,
+    isHidden:    startHidden,
     isMinimized: false,
     isMaximized: false,
     animating:   false,
@@ -171,9 +199,25 @@ function _register(win) {
       e.stopPropagation();
       const s = registry.get(win);
       if (!s.closable) return;
-      registry.delete(win);
-      win.remove();
-      _relayoutMinimized();
+      if (win.dataset.startHidden === 'true') {
+        // App windows hide rather than close so they can be reopened
+        if (s.isMinimized) {
+          // Un-minimize state silently before hiding
+          s.isMinimized = false;
+          win.classList.remove('minimized');
+          _relayoutMinimized();
+        }
+        if (s.isMaximized) s.isMaximized = false;
+        s.isHidden = true;
+        win.style.visibility = 'hidden';
+        // Mark title bar inactive
+        const tb = win.querySelector('.title-bar');
+        if (tb) tb.classList.add('inactive');
+      } else {
+        registry.delete(win);
+        win.remove();
+        _relayoutMinimized();
+      }
     });
   }
 
@@ -184,6 +228,13 @@ function _register(win) {
 
 function _focus(win) {
   win.style.zIndex = ++zTop;
+  // Toggle inactive title bar styling across all registered windows
+  registry.forEach((_, w) => {
+    const tb = w.querySelector('.title-bar');
+    if (tb) tb.classList.toggle('inactive', w !== win);
+  });
+  // Notify desktop so it can deselect icons
+  if (_viewport) _viewport.dispatchEvent(new CustomEvent('wm:focus'));
 }
 
 // ─── Drag from maximized (restore-then-drag) ─────────────────────────────────

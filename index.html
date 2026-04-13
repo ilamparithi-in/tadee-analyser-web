@@ -13,10 +13,13 @@
 <body>
 <div id="viewport">
 
-  <!-- Notepad window -->
-  <div id="win-notepad" class="window" style="width: 900px; height: 580px;">
+  <!-- Desktop icon layer -->
+  <div id="desktop"></div>
+
+  <!-- Transmission Line Analyzer window -->
+  <div id="win-notepad" class="window" data-start-hidden="true" style="width: 900px; height: 580px;">
     <div class="title-bar">
-      <div class="title-bar-text">Notepad — Untitled</div>
+      <div class="title-bar-text">Transmission Line Analyzer</div>
       <div class="title-bar-controls">
         <button aria-label="Minimize"></button>
         <button aria-label="Maximize"></button>
@@ -210,6 +213,7 @@
 
   <script type="module" src="js/windowManager.js"></script>
   <script type="module" src="js/notepad.js"></script>
+  <script type="module" src="js/desktop.js"></script>
 </div><!-- /#viewport -->
 
 <div id="taskbar">
@@ -219,7 +223,7 @@
   </button>
   <div id="taskbar-tasks"></div>
   <div id="taskbar-tray">
-    <div id="taskbar-clock">12:00 PM</div>
+    <div id="taskbar-clock"></div>
   </div>
 </div>
 
