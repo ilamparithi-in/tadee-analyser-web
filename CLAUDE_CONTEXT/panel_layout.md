@@ -139,7 +139,8 @@ Structure:
 
 ## Layout method (updated)
 
-- `#panel-layout`: `display: flex; flex-direction: column; height: 284px`
+- `#panel-layout`: `display: flex; flex-direction: column; height: 100%`
+  - `height: 100%` works because `.window-body` is a flex child with `flex: 1 1 auto` and the window has an explicit height set by the window manager or `createWindow({ height: N })`
   - `#panel-top-row`: `flex: 1; display: flex` — top section expands to fill all space above bottom panel
   - splitter-h: `flex: 0 0 4px`
   - `#panel-bottom`: `flex: 0 0 var(--bottom-height)` — fixed height, CSS var controlled by JS

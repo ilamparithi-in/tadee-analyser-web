@@ -19,14 +19,33 @@
     ::-webkit-scrollbar-button:horizontal:start:increment,
     ::-webkit-scrollbar-button:horizontal:end:decrement { display: none !important; }
 
-    body { background: teal; margin: 0; padding: 0; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
-    /* Viewport: reference frame for all absolutely-positioned windows. flex:1 excludes status bar. */
-    #viewport { position: relative; width: 100%; flex: 1; overflow: hidden; }
+    body { background: teal; margin: 0; padding: 0; overflow: hidden; height: 100vh; }
+    /* Viewport: reference frame for all absolutely-positioned windows */
+    #viewport { position: relative; width: 100%; height: 100%; overflow: hidden; }
     /* Windows are positioned by windowManager.js; hidden until JS assigns coordinates */
-    #viewport > .window { position: absolute; visibility: hidden; box-sizing: border-box; overflow: hidden; }
+    /* flex-direction:column lets the status bar anchor at the bottom when window is resized */
+    #viewport > .window { position: absolute; visibility: hidden; box-sizing: border-box; display: flex; flex-direction: column; }
     .window { min-width: 160px; }
+    /* window-body grows to fill all space between title-bar+toolbars and status-bar */
+    .window-body { flex: 1 1 auto; overflow: hidden; min-height: 0; }
     /* Minimized window: title text truncates with ellipsis — never wraps */
     .minimized .title-bar-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px; }
+
+    /* Win98 drag/resize outline */
+    #wm-outline {
+      display: none; position: absolute; pointer-events: none; z-index: 9999;
+      box-sizing: border-box; border: 2px dotted #000;
+    }
+    /* Resize handles — thin strips on window edges/corners */
+    .wm-resize-handle { position: absolute; z-index: 10; }
+    .wm-resize-handle[data-dir="n"]  { top: 0;    left: 6px;  right: 6px;  height: 4px; cursor: n-resize; }
+    .wm-resize-handle[data-dir="s"]  { bottom: 0; left: 6px;  right: 6px;  height: 4px; cursor: s-resize; }
+    .wm-resize-handle[data-dir="e"]  { right: 0;  top: 6px;   bottom: 6px; width: 4px;  cursor: e-resize; }
+    .wm-resize-handle[data-dir="w"]  { left: 0;   top: 6px;   bottom: 6px; width: 4px;  cursor: w-resize; }
+    .wm-resize-handle[data-dir="ne"] { top: 0;    right: 0;   width: 8px; height: 8px; cursor: ne-resize; }
+    .wm-resize-handle[data-dir="nw"] { top: 0;    left: 0;    width: 8px; height: 8px; cursor: nw-resize; }
+    .wm-resize-handle[data-dir="se"] { bottom: 0; right: 0;   width: 8px; height: 8px; cursor: se-resize; }
+    .wm-resize-handle[data-dir="sw"] { bottom: 0; left: 0;    width: 8px; height: 8px; cursor: sw-resize; }
     .field-row { margin-bottom: 6px; }
 
     /* Menu bar */
@@ -90,7 +109,7 @@
       --left-width: 260px;
       --bottom-height: 80px;
       display: flex; flex-direction: column;
-      height: 460px;
+      height: 100%;
     }
     #panel-top-row {
       display: flex; flex: 1; min-height: 40px; overflow: hidden;
@@ -287,207 +306,17 @@
     </div>
   </div>
 
-  <!-- 5. Menu bar + toolbar window -->
-  <div class="window" style="width: 700px;">
-    <div class="title-bar">
-      <div class="title-bar-text">Notepad — Untitled</div>
-      <div class="title-bar-controls">
-        <button aria-label="Minimize"></button>
-        <button aria-label="Maximize"></button>
-        <button aria-label="Close"></button>
-      </div>
-    </div>
-
-    <nav class="menu-bar" id="menu-bar">
-      <div class="menu-item" data-menu="file">
-        <button>File</button>
-        <div class="dropdown">
-          <div class="dropdown-inner">
-            <button class="dropdown-item">New</button>
-            <button class="dropdown-item">Open…</button>
-            <button class="dropdown-item">Save</button>
-            <button class="dropdown-item">Save As…</button>
-            <hr class="dropdown-separator" />
-            <button class="dropdown-item">Print…</button>
-            <hr class="dropdown-separator" />
-            <button class="dropdown-item">Exit</button>
-          </div>
-        </div>
-      </div>
-      <div class="menu-item" data-menu="edit">
-        <button>Edit</button>
-        <div class="dropdown">
-          <div class="dropdown-inner">
-            <button class="dropdown-item" disabled>Undo</button>
-            <hr class="dropdown-separator" />
-            <button class="dropdown-item">Cut</button>
-            <button class="dropdown-item">Copy</button>
-            <button class="dropdown-item">Paste</button>
-            <button class="dropdown-item">Delete</button>
-            <hr class="dropdown-separator" />
-            <button class="dropdown-item">Select All</button>
-          </div>
-        </div>
-      </div>
-      <div class="menu-item" data-menu="view">
-        <button>View</button>
-        <div class="dropdown">
-          <div class="dropdown-inner">
-            <button class="dropdown-item">Toolbar</button>
-            <button class="dropdown-item">Status Bar</button>
-            <hr class="dropdown-separator" />
-            <button class="dropdown-item">Word Wrap</button>
-          </div>
-        </div>
-      </div>
-      <div class="menu-item" data-menu="tools">
-        <button>Tools</button>
-        <div class="dropdown">
-          <div class="dropdown-inner">
-            <button class="dropdown-item">Options…</button>
-            <button class="dropdown-item">Preferences…</button>
-          </div>
-        </div>
-      </div>
-      <div class="menu-item" data-menu="help">
-        <button>Help</button>
-        <div class="dropdown">
-          <div class="dropdown-inner">
-            <button class="dropdown-item">Help Topics</button>
-            <hr class="dropdown-separator" />
-            <button class="dropdown-item">About Notepad</button>
-          </div>
-        </div>
-      </div>
-    </nav>
-
-    <div class="toolbar">
-      <button>New</button>
-      <button>Open</button>
-      <button>Save</button>
-      <div class="toolbar-separator"></div>
-      <button>Print</button>
-    </div>
-
-    <!-- Panel layout: left+right side by side, bottom full-width -->
-    <div class="window-body" style="padding: 4px;">
-      <div id="panel-layout">
-
-        <!-- Top row: left + right panels with vertical splitter -->
-        <div id="panel-top-row">
-          <div id="panel-left">
-            <div class="panel-content">
-            <form id="input-form" style="font-size:11px;">
-
-              <fieldset>
-                <legend>Electrical Parameters</legend>
-                <div class="field-row-stacked">
-                  <label for="line-length">Line length (km)</label>
-                  <input id="line-length" type="number" min="0" step="any" />
-                </div>
-                <div class="field-row-stacked" style="margin-top:4px;">
-                  <label for="load-mw">Receiving end load (MW)</label>
-                  <input id="load-mw" type="number" min="0" step="any" />
-                </div>
-                <div class="field-row-stacked" style="margin-top:4px;">
-                  <label for="power-factor">Power factor</label>
-                  <input id="power-factor" type="number" min="0" max="1" step="0.01" />
-                </div>
-                <div class="field-row-stacked" style="margin-top:4px;">
-                  <label for="voltage">Nominal voltage (kV)</label>
-                  <input id="voltage" type="number" min="0" step="any" />
-                </div>
-                <div class="field-row-stacked" style="margin-top:4px;">
-                  <label for="frequency">Frequency (Hz)</label>
-                  <input id="frequency" type="number" min="0" step="any" value="50" />
-                </div>
-                <div class="field-row-stacked" style="margin-top:4px;">
-                  <label for="system-type">System type</label>
-                  <select id="system-type">
-                    <option>Symmetrical</option>
-                    <option>Unsymmetrical</option>
-                  </select>
-                </div>
-              </fieldset>
-
-              <fieldset style="margin-top:6px;">
-                <legend>Geometry Parameters</legend>
-                <div class="field-row-stacked">
-                  <label for="phase-spacing">Phase spacing (m)</label>
-                  <input id="phase-spacing" type="number" min="0" step="any" />
-                </div>
-                <div class="field-row-stacked" style="margin-top:4px;">
-                  <label for="bundle-count">Bundle count</label>
-                  <select id="bundle-count">
-                    <option>2</option>
-                    <option>3</option>
-                    <option>4</option>
-                  </select>
-                </div>
-                <div class="field-row-stacked" style="margin-top:4px;">
-                  <label for="sub-spacing">Sub-conductor spacing (m)</label>
-                  <input id="sub-spacing" type="number" min="0" step="any" />
-                </div>
-              </fieldset>
-
-              <fieldset style="margin-top:6px;">
-                <legend>Conductor Parameters</legend>
-                <div class="field-row-stacked">
-                  <label for="strands">Number of strands</label>
-                  <input id="strands" type="number" min="1" step="1" />
-                </div>
-                <div class="field-row-stacked" style="margin-top:4px;">
-                  <label for="resistance">Resistance (Ω/km)</label>
-                  <input id="resistance" type="number" min="0" step="any" />
-                </div>
-              </fieldset>
-
-              <fieldset style="margin-top:6px;">
-                <legend>Model Selection</legend>
-                <div class="field-row-stacked">
-                  <label for="line-model">Line model</label>
-                  <select id="line-model">
-                    <option>Short</option>
-                    <option>Nominal π</option>
-                    <option>Distributed</option>
-                  </select>
-                </div>
-              </fieldset>
-
-            </form>
-            </div>
-          </div>
-          <div class="splitter-v" id="splitter-v"></div>
-          <div id="panel-right">
-            <div id="canvas-container"></div>
-          </div>
-        </div>
-
-        <!-- Horizontal splitter -->
-        <div class="splitter-h" id="splitter-h"></div>
-
-        <!-- Bottom: Results panel -->
-        <div id="panel-bottom">
-          <div id="results-heading">Results</div>
-          <div id="results-scroll">
-            <div id="results-grid"></div>
-          </div>
-        </div>
-
-      </div>
-    </div>
-  </div>
+  <!-- Notepad window is created programmatically by js/notepad.js -->
 
 </div><!-- /#viewport -->
-<!-- Global status bar: anchored to bottom of viewport by flex layout on body -->
-<div class="status-bar">
-  <p class="status-bar-field" id="app-status-bar">No calculation performed</p>
-</div>
 
+  <!-- Execution order matters: windowManager registers static windows first,
+       notepad.js creates Notepad DOM next, then menu/panels/grid query that DOM -->
+  <script type="module" src="js/windowManager.js"></script>
+  <script type="module" src="js/notepad.js"></script>
   <script type="module" src="js/main.js"></script>
   <script type="module" src="js/menu.js"></script>
   <script type="module" src="js/panels.js"></script>
   <script type="module" src="js/grid.js"></script>
-  <script type="module" src="js/windowManager.js"></script>
 </body>
 </html>

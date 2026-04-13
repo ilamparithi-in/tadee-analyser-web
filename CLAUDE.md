@@ -52,10 +52,20 @@ This file is append-only. Every response must add relevant rules, decisions, and
 - No framework — vanilla HTML/CSS/JS only
 - Must be served over HTTP (not `file://`) due to ES modules
 
+## Window Layout Rules (status bar / flex)
+
+Any `.window` managed by the window manager **must** use `display: flex; flex-direction: column` so that a status bar (or any footer element) anchors to the bottom when the window is resized to an explicit height. Apply this globally via `#viewport > .window`.
+
+- Set `.window-body { flex: 1 1 auto; overflow: hidden; min-height: 0; }` — fills all space between title-bar+toolbars and status-bar; `auto` basis preserves content-sized windows while still growing in explicitly-height windows
+- Any fixed-height inner layout (e.g. `#panel-layout { height: 460px }`) must be changed to `height: 100%` so it fills the now-growing `.window-body`
+
+Without flex, `.window-body` stays content-sized and the status-bar floats in the middle of a tall resized window.
+
 ## Corrections Made
 
 - Removed duplicate scrollbar arrow buttons that 98.css exposes by default
 - Split `html, * { scroll-behavior: auto !important; }` into two rules to properly target the `html` element explicitly
+- Made `#viewport > .window` flex-column and `.window-body` flex-grow so status bars anchor correctly after resize
 
 ## Generalized Rules
 
