@@ -10,8 +10,15 @@ const COLUMNS = [
   { letter: 'C', title: 'Unit'      },
 ];
 
-const COL_RATIOS = [0.5, 0.25, 0.25]; // A : B : C — default (wide)
-const COL_RATIOS_NARROW = [0.40, 0.35, 0.25]; // A : B : C — mobile / narrow panel
+const COL_RATIOS        = [0.50, 0.25, 0.25]; // A : B : C — wide (> 400 px available)
+const COL_RATIOS_MEDIUM = [0.43, 0.32, 0.25]; // A : B : C — medium (200–400 px)
+const COL_RATIOS_NARROW = [0.36, 0.39, 0.25]; // A : B : C — narrow (< 200 px)
+
+function _defaultRatios(available) {
+  if (available < 200) return COL_RATIOS_NARROW;
+  if (available < 400) return COL_RATIOS_MEDIUM;
+  return COL_RATIOS;
+}
 
 const DEFAULT_ROWS = [
   ['Inductance',           '—', 'H/km'],
@@ -35,12 +42,13 @@ const ROW_HDR_WIDTH = 30; // px — left column with row numbers
  * @returns {{ setCell(row, col, value): void, setData(rows): void }}
  */
 export function initResultsGrid(containerEl, ratios) {
-  // Compute initial column widths from scroll container available space
-  const scrollEl = containerEl.parentElement;
-  const scrollW  = scrollEl ? scrollEl.clientWidth : 0;
-  const available = Math.max(180, scrollW - ROW_HDR_WIDTH - (COLUMNS.length + 2));
-  const effectiveRatios = ratios ?? (available < 260 ? COL_RATIOS_NARROW : COL_RATIOS);
-  const colWidths = effectiveRatios.map(r => Math.max(40, Math.floor(available * r)));
+  // clientWidth is 0 when the window is hidden (visibility:hidden at init).
+  // Fall back to window.innerWidth — the output pane spans the full viewport when maximised.
+  const scrollEl  = containerEl.parentElement;
+  const scrollW   = (scrollEl?.clientWidth) || window.innerWidth;
+  const available = Math.max(100, scrollW - ROW_HDR_WIDTH - (COLUMNS.length + 2));
+  const effectiveRatios = ratios ?? _defaultRatios(available);
+  const colWidths = effectiveRatios.map(r => Math.max(30, Math.floor(available * r)));
 
   const table = document.createElement('table');
   table.id = 'eg-table';

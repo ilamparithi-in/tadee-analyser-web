@@ -53,14 +53,9 @@ export function initNotepadWindow(viewport) {
   const layout = win.querySelector('#panel-layout');
   if (layout) initPanelLayout(layout);
 
-  // Results grid — pick column ratios based on the bottom panel's available width
+  // Results grid
   const grid = win.querySelector('#results-grid');
-  if (grid) {
-    const scrollEl = grid.parentElement;
-    const scrollW  = scrollEl ? scrollEl.clientWidth : 0;
-    const ratios   = scrollW < 320 ? [0.38, 0.37, 0.25] : undefined; // narrow: tighten Label col
-    _gridApi = initResultsGrid(grid, ratios);
-  }
+  if (grid) _gridApi = initResultsGrid(grid);
 
   // Compute button
   const btnCompute = win.querySelector('#btn-compute');
