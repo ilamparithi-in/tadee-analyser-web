@@ -48,7 +48,7 @@ class complex {
 }
 const lineParams = {
     diaStrands: 0.01, noOfStrands: 7, spacingBwSubConds: 0.04, noOfSCperBundle: 4, symmetry: 'symmetrical', Dab: 20, Dbc: 24, Dca: 34,
-    D: 23, lineLength: 25, freq: 50, model: 'distributed', RperSCperKm: 0.1, Vnom_kV: 25,
+    D: 23, lineLength: 25, freq: 50, model: 'short', RperSCperKm: 0.1, Vnom_kV: 25,
     loadMW: 140, pf: 0.8
 }
 // length of line in km input
@@ -68,7 +68,7 @@ class lineCalculations {
         this.freq = lineParams.freq;
         this.model = lineParams.model;
         this.RperSCperKm = lineParams.RperSCperKm;
-        this.Vnom_kV = lineParams.Vnom_kV / Math.sqrt(3);
+        this.Vnom_kV = lineParams.Vnom_kV / Math.sqrt(3); //internal conversion to phase. use as is.
 
         this.loadMW = lineParams.loadMW;
         this.pf = lineParams.pf;
@@ -169,17 +169,17 @@ class lineCalculations {
             const f = this.freq;
             const lineLength = this.lineLength;
             const r = this.RperCond() / lineLength / 1000; //add
-            const l = this.LandCperPhasePerKm().inductance / 1000;
-            const c = this.LandCperPhasePerKm().capacitance / 1000;
+            const l = this.LandCperPhasePerKm().inductance / 1000; //m
+            const c = this.LandCperPhasePerKm().capacitance / 1000; //m
             const Zc = Math.sqrt(l / c);
             const z = new complex(r, 2 * Math.PI * f * l);
             const y = new complex(0, 2 * Math.PI * f * c);
             const yz = y.multiply(z)
             const gamma = new complex(0, 2 * Math.PI * f * Math.sqrt(l * c)); //lossless or lossful?
-            const beta = 2 * Math.PI * f * Math.sqrt(l * c);
-            A = Math.cos(beta * lineLength);
-            B = Math.sin(beta * lineLength) * Zc;
-            C = Math.sin(beta * lineLength) / Zc;
+            const beta = 2 * Math.PI * f * Math.sqrt(l * c); //per meter
+            A = Math.cos(beta * lineLength * 1000); //beta is per meter
+            B = new complex(0, Math.sin(beta * lineLength * 1000) * Zc);
+            C = new complex(0, Math.sin(beta * lineLength * 1000) / Zc);
         }
         else {
             throw new Error('wrong model!');
@@ -217,7 +217,7 @@ class lineCalculations {
         const AVr = A.multiply(Vr);
         const BIr = B.multiply(Ir);
         const Vs_phase = AVr.add(BIr);
-        const Vs_line = Vs_phase.multiply(Math.sqrt(3)).multiply(Math.sqrt(3) / 2, 1 / 2) //when converting to linetoline we have a phase shift too?? confirm..
+        const Vs_line = Vs_phase.multiply(Math.sqrt(3)).multiply(new complex(Math.sqrt(3) / 2, 1 / 2)) //when converting to linetoline we have a phase shift too?? confirm..
         return { linetoline: Vs_line, phase: Vs_phase }; //line to line voltage
     }
     Is_A() {
@@ -244,14 +244,15 @@ class lineCalculations {
         return Icharging_A;
     }
     percent_VR() {
+        const A = this.ABCDparams().A;
         const Vr = this.Vnom_kV;
-        const mod_Vr = Vr; //cuz we already took only magnitude anyways
+        const mod_Vr_fullLoad = Vr; //cuz we already took only magnitude anyways
         const Vs = this.Vs_kV_line_phase().phase;
-        const mod_Vs = Vs.modulus();
-        const percent_VR = (mod_Vs - mod_Vr) / mod_Vs * 100;
+        const mod_Vr_noLoad = Vs.modulus() / A.modulus();
+        const percent_VR = (mod_Vr_noLoad - mod_Vr_fullLoad) / mod_Vr_fullLoad * 100;
         return percent_VR;
     }
-    power_loss_MW() {
+    power_loss_MW_and_efficiency() {
         const Vs = this.Vs_kV_line_phase().phase;
         const Is = this.Is_A().divide(1000); //kA
         const Vr = this.Vnom_kV;
@@ -260,18 +261,22 @@ class lineCalculations {
         const Ir_star = Ir.conjugate();
         const S_sending = Vs.multiply(Is_star);
         const S_receiving = Ir_star.multiply(Vr); //Vr isnt complex class after all.. ilam if you think this is unsafe mabye change Vr into complex before the calculations im too lazy to do that.
-        const power_loss = S_sending.subtract(S_receiving);
+        const power_loss = S_sending.subtract(S_receiving).multiply(3); //total 3 phase loss
         const power_loss_MW = power_loss.re;
-        return power_loss_MW;
+        const efficiency = S_receiving.re / S_sending.re; //single phase and three phase efficiency same
+        return { power_loss_MW: power_loss_MW, efficiency: efficiency };
     }
-    
+    Zc() {
+        const l = this.LandCperPhasePerKm().inductance / 1000;
+        const c = this.LandCperPhasePerKm().capacitance / 1000;
+        const Zc = Math.sqrt(l / c);
+        return Zc;
 
-
-
-
-
-
-
+    }
+    SIL_MW() {
+        const Zc = this.Zc(); //ohms
+        const Vr = this.Vnom_kV; //kV
+        const SIL = (Vr * Vr) / Zc * 3; //three phase load consumption
+        return SIL;
+    }
 }
-const line1 = new lineCalculations(lineParams);
-console.log(line1.power_loss_MW());
