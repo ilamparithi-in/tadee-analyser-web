@@ -20,10 +20,11 @@ const MIN_WIN_W         = 120;
 const MIN_WIN_H         = 60;
 const MINIMIZED_SLOT_W  = 160;
 
-let _viewport = null;
-let _outline  = null;  // shared #wm-outline element — created once on first use
-let _cascade  = 0;     // shared with addWindow for correct cascade across static + dynamic
-let  zTop     = 100;   // z-index counter, starts above 98.css library values
+let _viewport     = null;
+let _taskbarTasks = null;  // #taskbar-tasks container for window buttons
+let _outline      = null;  // shared #wm-outline element — created once on first use
+let _cascade      = 0;     // shared with addWindow for correct cascade across static + dynamic
+let  zTop         = 100;   // z-index counter, starts above 98.css library values
 
 /** @type {Map<HTMLElement, Object>} */
 const registry = new Map();
@@ -49,15 +50,17 @@ function _getOutline() {
  * @param {HTMLElement} viewport
  */
 export function initWindowManager(viewport) {
-  _viewport = viewport;
+  _viewport     = viewport;
+  _taskbarTasks = document.querySelector('#taskbar-tasks');
   viewport.querySelectorAll(':scope > .window').forEach(win => _register(win));
 
   // Deactivate all windows when clicking outside any window
   viewport.addEventListener('mousedown', e => {
     if (!e.target.closest('.window')) {
-      registry.forEach((_, w) => {
+      registry.forEach((s, w) => {
         const tb = w.querySelector('.title-bar');
         if (tb) tb.classList.add('inactive');
+        if (s.taskBtn) s.taskBtn.setAttribute('aria-pressed', 'false');
       });
     }
   });
@@ -92,6 +95,7 @@ export function raiseWindow(winEl) {
   if (s.isHidden) {
     s.isHidden = false;
     winEl.style.visibility = 'visible';
+    if (s.taskBtn) s.taskBtn.style.display = '';
   }
   if (s.isMinimized) _restore(winEl);
   _focus(winEl);
@@ -148,8 +152,37 @@ function _register(win) {
     minimizable,
     closable,
     maxBtn,
+    taskBtn:     null,
   };
   registry.set(win, state);
+
+  // ── Taskbar button ───────────────────────────────────────────────────────────
+  if (_taskbarTasks) {
+    const label   = win.querySelector('.title-bar-text')?.textContent?.trim() || 'Window';
+    const taskBtn = document.createElement('button');
+    taskBtn.className   = 'taskbar-task-btn';
+    taskBtn.textContent = label;
+    taskBtn.setAttribute('aria-pressed', 'false');
+    if (startHidden) taskBtn.style.display = 'none';
+    taskBtn.addEventListener('click', () => {
+      const s = registry.get(win);
+      if (!s || s.isHidden) return;
+      if (s.isMinimized) {
+        _restoreFromMin(win);
+        _focus(win);
+      } else {
+        // Win98: clicking the active window’s button minimizes it; otherwise bring to front
+        const tb = win.querySelector('.title-bar');
+        if (tb && !tb.classList.contains('inactive')) {
+          _minimize(win);
+        } else {
+          raiseWindow(win);
+        }
+      }
+    });
+    _taskbarTasks.appendChild(taskBtn);
+    state.taskBtn = taskBtn;
+  }
 
   // ── Focus on any mousedown ────────────────────────────────────────────────
   win.addEventListener('mousedown', () => _focus(win));
@@ -189,8 +222,8 @@ function _register(win) {
       e.stopPropagation();
       const s = registry.get(win);
       if (!s.minimizable || s.animating) return;
-      if (s.isMinimized) _restore(win);
-      else _minimize(win);
+      if (s.isMinimized) { _restore(win); _focus(win); }
+      else { _focus(win); _minimize(win); }
     });
   }
 
@@ -200,6 +233,7 @@ function _register(win) {
       e.stopPropagation();
       const s = registry.get(win);
       if (!s.maximizable || s.animating) return;
+      _focus(win);
       if (s.isMaximized) _restoreFromMax(win);
       else _maximize(win);
     });
@@ -214,21 +248,20 @@ function _register(win) {
       if (win.dataset.startHidden === 'true') {
         // App windows hide rather than close so they can be reopened
         if (s.isMinimized) {
-          // Un-minimize state silently before hiding
           s.isMinimized = false;
           win.classList.remove('minimized');
-          _relayoutMinimized();
         }
         if (s.isMaximized) s.isMaximized = false;
         s.isHidden = true;
         win.style.visibility = 'hidden';
-        // Mark title bar inactive
+        // Mark title bar inactive and hide taskbar button
         const tb = win.querySelector('.title-bar');
         if (tb) tb.classList.add('inactive');
+        if (s.taskBtn) s.taskBtn.style.display = 'none';
       } else {
+        if (s.taskBtn) s.taskBtn.remove();
         registry.delete(win);
         win.remove();
-        _relayoutMinimized();
       }
     });
   }
@@ -240,10 +273,12 @@ function _register(win) {
 
 function _focus(win) {
   win.style.zIndex = ++zTop;
-  // Toggle inactive title bar styling across all registered windows
-  registry.forEach((_, w) => {
-    const tb = w.querySelector('.title-bar');
-    if (tb) tb.classList.toggle('inactive', w !== win);
+  // Toggle inactive title bar styling and taskbar button pressed state
+  registry.forEach((s, w) => {
+    const tb      = w.querySelector('.title-bar');
+    const focused = w === win;
+    if (tb) tb.classList.toggle('inactive', !focused);
+    if (s.taskBtn) s.taskBtn.setAttribute('aria-pressed', focused ? 'true' : 'false');
   });
   // Notify desktop so it can deselect icons
   if (_viewport) _viewport.dispatchEvent(new CustomEvent('wm:focus'));
@@ -460,20 +495,25 @@ function _startResize(win, dir, e) {
 
 // ─── Minimize ─────────────────────────────────────────────────────────────────
 
+/** Convert a taskbar button's bounding rect to viewport-relative coordinates. */
+function _btnToViewportRect(btn) {
+  const vr = _viewport.getBoundingClientRect();
+  const br = btn.getBoundingClientRect();
+  return { x: br.left - vr.left, y: br.top - vr.top, w: br.width, h: br.height };
+}
+
 function _minimize(win) {
   const s = registry.get(win);
   if (!s || s.isMinimized || s.animating) return;
 
-  // Save state for restore.
-  // If currently maximized, preserve the pre-maximize dimensions from the existing
-  // prevState so un-minimizing can return the window to its pre-maximize size.
+  // Save state for restore
   if (s.isMaximized && s.prevState) {
     s.prevState = {
       x:           s.prevState.x,
       y:           s.prevState.y,
       width:       s.prevState.width,
       height:      s.prevState.height,
-      isMaximized: true, // remember we were maximized
+      isMaximized: true,
     };
   } else {
     s.prevState = {
@@ -485,17 +525,17 @@ function _minimize(win) {
     };
   }
 
-  // Clear maximized flag (will animate to slot regardless)
   if (s.isMaximized) {
     s.isMaximized = false;
     if (s.maxBtn) s.maxBtn.setAttribute('aria-label', 'Maximize');
   }
 
-  // Measure title bar height dynamically
-  const titleBar  = win.querySelector('.title-bar');
-  const titleBarH = titleBar ? titleBar.offsetHeight : 18;
+  // Measure target: taskbar button position in viewport coordinates
+  const target = s.taskBtn
+    ? _btnToViewportRect(s.taskBtn)
+    : { x: 0, y: _viewport.clientHeight - 22, w: MINIMIZED_SLOT_W, h: 22 };
 
-  // IMMEDIATELY hide all non-title-bar children
+  // Immediately hide all non-title-bar children
   Array.from(win.children).forEach(child => {
     if (!child.classList.contains('title-bar') &&
         !child.classList.contains('wm-resize-handle')) {
@@ -503,37 +543,35 @@ function _minimize(win) {
     }
   });
 
-  // Stamp current geometry as explicit px so the browser has a "from" state
+  // Stamp current geometry as explicit px ("from" state), flush
   win.style.width  = s.prevState.width  + 'px';
   win.style.height = s.prevState.height + 'px';
   win.style.left   = s.prevState.x      + 'px';
   win.style.top    = s.prevState.y      + 'px';
-  win.getBoundingClientRect(); // flush layout
-
-  // Compute minimized target
-  const slot    = _nextMinimizedSlot();
-  const targetY = _viewport.clientHeight - titleBarH - 2;
+  win.getBoundingClientRect();
 
   s.isMinimized = true;
   s.animating   = true;
-  win.classList.add('minimized');
-  win.classList.add('wm-transitioning');
+  win.classList.add('minimized', 'wm-transitioning');
 
   win.style.transition = `left   ${MINIMIZE_ANIM_MS}ms linear,
                           top    ${MINIMIZE_ANIM_MS}ms linear,
                           width  ${MINIMIZE_ANIM_MS}ms linear,
                           height ${MINIMIZE_ANIM_MS}ms linear`;
-  win.style.left   = slot.x         + 'px';
-  win.style.top    = targetY        + 'px';
-  win.style.width  = MINIMIZED_SLOT_W + 'px';
-  win.style.height = titleBarH      + 'px';
+  win.style.left   = target.x + 'px';
+  win.style.top    = target.y + 'px';
+  win.style.width  = target.w + 'px';
+  win.style.height = target.h + 'px';
 
   setTimeout(() => {
     win.style.transition = '';
     win.classList.remove('wm-transitioning');
+    win.style.visibility = 'hidden';  // window disappears — taskbar button remains
     s.animating = false;
-    s.x = slot.x;
-    s.y = targetY;
+    // Deactivate: remove focus from this window now it is hidden
+    const tb = win.querySelector('.title-bar');
+    if (tb) tb.classList.add('inactive');
+    if (s.taskBtn) s.taskBtn.setAttribute('aria-pressed', 'false');
   }, MINIMIZE_ANIM_MS + 20);
 }
 
@@ -659,23 +697,28 @@ function _restoreFromMax(win) {
 function _restoreFromMin(win) {
   const s    = registry.get(win);
   const prev = s.prevState;
-  if (!prev) return;
+  if (!prev || s.animating) return;
+
+  // Re-measure button position at restore time (may differ from minimize time)
+  const startPos = s.taskBtn
+    ? _btnToViewportRect(s.taskBtn)
+    : { x: 0, y: _viewport.clientHeight - 22, w: MINIMIZED_SLOT_W, h: 22 };
+
+  const targetX = prev.isMaximized ? 0                      : prev.x;
+  const targetY = prev.isMaximized ? 0                      : prev.y;
+  const targetW = prev.isMaximized ? _viewport.clientWidth  : prev.width;
+  const targetH = prev.isMaximized ? _viewport.clientHeight : prev.height;
 
   s.animating = true;
   win.classList.add('wm-transitioning');
 
-  // When coming from maximized, restore target is the full viewport.
-  // prev.x/y/width/height hold the pre-maximize dims for later restore-from-max.
-  const targetX = prev.isMaximized ? 0                       : prev.x;
-  const targetY = prev.isMaximized ? 0                       : prev.y;
-  const targetW = prev.isMaximized ? _viewport.clientWidth   : prev.width;
-  const targetH = prev.isMaximized ? _viewport.clientHeight  : prev.height;
-
-  // Stamp current minimized geometry as explicit px, flush layout
-  win.style.width  = win.offsetWidth  + 'px';
-  win.style.height = win.offsetHeight + 'px';
-  win.style.left   = win.offsetLeft   + 'px';
-  win.style.top    = win.offsetTop    + 'px';
+  // Snap to button position then make visible (no transition yet)
+  win.style.transition = '';
+  win.style.left   = startPos.x + 'px';
+  win.style.top    = startPos.y + 'px';
+  win.style.width  = startPos.w + 'px';
+  win.style.height = startPos.h + 'px';
+  win.style.visibility = 'visible';
   win.getBoundingClientRect(); // flush
 
   win.style.transition = `left   ${MINIMIZE_ANIM_MS}ms linear,
@@ -703,7 +746,6 @@ function _restoreFromMin(win) {
     });
 
     if (prev.isMaximized) {
-      // Back to maximized state; prevState retains pre-maximize dims for restore-from-max
       s.isMaximized = true;
       s.x = 0;
       s.y = 0;
@@ -713,39 +755,6 @@ function _restoreFromMin(win) {
       s.x = prev.x;
       s.y = prev.y;
     }
-
-    _relayoutMinimized();
   }, MINIMIZE_ANIM_MS + 20);
 }
 
-// ─── Minimized slot helpers ───────────────────────────────────────────────────
-
-function _nextMinimizedSlot() {
-  const used = new Set();
-  registry.forEach((s, w) => {
-    if (s.isMinimized) {
-      used.add(Math.round(w.offsetLeft / MINIMIZED_SLOT_W));
-    }
-  });
-  let idx = 0;
-  while (used.has(idx)) idx++;
-  return { x: idx * MINIMIZED_SLOT_W };
-}
-
-function _relayoutMinimized() {
-  const vpH = _viewport.clientHeight;
-  let idx = 0;
-
-  registry.forEach((s, win) => {
-    if (!s.isMinimized) return;
-    const titleBar  = win.querySelector('.title-bar');
-    const titleBarH = titleBar ? titleBar.offsetHeight : 18;
-    const targetY   = vpH - titleBarH - 2;
-
-    win.style.left = (idx * MINIMIZED_SLOT_W) + 'px';
-    win.style.top  = targetY + 'px';
-    s.x = idx * MINIMIZED_SLOT_W;
-    s.y = targetY;
-    idx++;
-  });
-}
