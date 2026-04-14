@@ -165,14 +165,50 @@
 
               <fieldset style="margin-top:6px;">
                 <legend>Geometry Parameters</legend>
-                <div class="field-row-stacked">
-                  <label for="phase-spacing">Phase spacing</label>
-                  <div class="unit-input-row">
-                    <input id="phase-spacing" type="number" min="0" step="any" />
-                    <select id="phase-spacing-unit" data-unit-for="phase-spacing" data-base-unit="m">
-                      <option value="cm" data-to-base="0.01">cm</option>
-                      <option value="m"  data-to-base="1" selected>m</option>
-                    </select>
+                <!-- Symmetric spacing (single D) -->
+                <div id="spacing-sym">
+                  <div class="field-row-stacked">
+                    <label for="phase-spacing">Phase spacing D</label>
+                    <div class="unit-input-row">
+                      <input id="phase-spacing" type="number" min="0" step="any" />
+                      <select id="phase-spacing-unit" data-unit-for="phase-spacing" data-base-unit="m">
+                        <option value="cm" data-to-base="0.01">cm</option>
+                        <option value="m"  data-to-base="1" selected>m</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+                <!-- Unsymmetric spacing (Dab, Dbc, Dca) -->
+                <div id="spacing-unsym" style="display:none;">
+                  <div class="field-row-stacked">
+                    <label for="dab">Dab</label>
+                    <div class="unit-input-row">
+                      <input id="dab" type="number" min="0" step="any" />
+                      <select id="dab-unit" data-unit-for="dab" data-base-unit="m">
+                        <option value="cm" data-to-base="0.01">cm</option>
+                        <option value="m"  data-to-base="1" selected>m</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="field-row-stacked" style="margin-top:4px;">
+                    <label for="dbc">Dbc</label>
+                    <div class="unit-input-row">
+                      <input id="dbc" type="number" min="0" step="any" />
+                      <select id="dbc-unit" data-unit-for="dbc" data-base-unit="m">
+                        <option value="cm" data-to-base="0.01">cm</option>
+                        <option value="m"  data-to-base="1" selected>m</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="field-row-stacked" style="margin-top:4px;">
+                    <label for="dca">Dca</label>
+                    <div class="unit-input-row">
+                      <input id="dca" type="number" min="0" step="any" />
+                      <select id="dca-unit" data-unit-for="dca" data-base-unit="m">
+                        <option value="cm" data-to-base="0.01">cm</option>
+                        <option value="m"  data-to-base="1" selected>m</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
                 <div class="field-row-stacked" style="margin-top:4px;">

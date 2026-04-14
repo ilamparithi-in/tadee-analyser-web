@@ -67,6 +67,9 @@ export function initNotepadWindow(viewport) {
   const btnLoad = win.querySelector('#btn-load-input');
   if (btnLoad) btnLoad.addEventListener('click', () => _loadInputs(win));
 
+  // Spacing toggle (symmetric vs unsymmetric)
+  _initSpacingToggle(win);
+
   // Three.js geometry viewer
   const container = win.querySelector('#canvas-container');
   if (container) _initThreeJs(container);
@@ -83,6 +86,9 @@ const INPUT_FIELDS = [
   ['voltage',        true],
   ['frequency',      false],
   ['phase-spacing',  true],
+  ['dab',            true],
+  ['dbc',            true],
+  ['dca',            true],
   ['sub-spacing',    true],
   ['strands',        false],
   ['dia-strands',    true],
@@ -173,6 +179,19 @@ function _loadInputs(win) {
   input.click();
 }
 
+function _initSpacingToggle(win) {
+  const sel   = win.querySelector('#system-type');
+  const rowSym   = win.querySelector('#spacing-sym');
+  const rowUnsym = win.querySelector('#spacing-unsym');
+  function _update() {
+    const isUnsym = sel?.value?.toLowerCase().includes('unsym');
+    if (rowSym)   rowSym.style.display   = isUnsym ? 'none' : '';
+    if (rowUnsym) rowUnsym.style.display = isUnsym ? ''     : 'none';
+  }
+  sel?.addEventListener('change', _update);
+  _update();
+}
+
 function _normaliseModel(raw) {
   const s = raw.toLowerCase().trim();
   if (s.includes('pi') || s.includes('π')) return 1;
@@ -203,10 +222,10 @@ function _compute(win) {
     recvPF:        n('power-factor'),
     nomSyskV:      bv('voltage'),
     frequency:     n('frequency'),
-    type:          v('system-type')?.value?.toLowerCase().includes('sym') ? 1 : 0,
-    Dab:           n('phase-spacing-Dab') || bv('phase-spacing'),
-    Dbc:           n('phase-spacing-Dbc') || bv('phase-spacing'),
-    Dca:           n('phase-spacing-Dca') || bv('phase-spacing'),
+    symmetric:     v('system-type')?.value?.toLowerCase().includes('unsym') ? 0 : 1,
+    Dab:           v('system-type')?.value?.toLowerCase().includes('unsym') ? bv('dab') : bv('phase-spacing'),
+    Dbc:           v('system-type')?.value?.toLowerCase().includes('unsym') ? bv('dbc') : bv('phase-spacing'),
+    Dca:           v('system-type')?.value?.toLowerCase().includes('unsym') ? bv('dca') : bv('phase-spacing'),
     phaseSpacingM: bv('phase-spacing'),
     scCount:       parseInt(v('bundle-count')?.value ?? '1', 10),
     scSpacingM:    bv('sub-spacing'),

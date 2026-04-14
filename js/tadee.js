@@ -47,7 +47,7 @@ class complex {
     //mabye sqrt function for gamma??
 }
 const lineParams = {
-    strandDiaM: 0.01, scStrands: 7, scSpacingM: 0.04, scCount: 4, type: 1, Dab: 20, Dbc: 24, Dca: 34,
+    strandDiaM: 0.01, scStrands: 7, scSpacingM: 0.04, scCount: 4, symmetric: 1, Dab: 20, Dbc: 24, Dca: 34,
     phaseSpacingM: 23, lineLengthKm: 25, frequency: 50, model: 0, resSCPerKm: 0.1, nomSyskV: 25,
     recvLoadMW: 140, recvPF: 0.8
 }
@@ -59,7 +59,7 @@ export class lineCalculations {
         this.scStrands = lineParams.scStrands;
         this.scSpacingM = lineParams.scSpacingM;
         this.scCount = lineParams.scCount;
-        this.type = lineParams.type;
+        this.symmetric = lineParams.symmetric;
         this.Dab = lineParams.Dab;
         this.Dbc = lineParams.Dbc;
         this.Dca = lineParams.Dca;
@@ -84,7 +84,7 @@ export class lineCalculations {
         const r_l = diam / 2 * 0.7788;
         const noOfSC = this.scCount;
         let SGMDc, SGMDl, MGMD;
-        let type = this.type;
+        let type = this.symmetric;
         const Dab = this.Dab;
         const Dbc = this.Dbc;
         const Dca = this.Dca;
