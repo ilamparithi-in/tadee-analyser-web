@@ -10,7 +10,8 @@ const COLUMNS = [
   { letter: 'C', title: 'Unit'      },
 ];
 
-const COL_RATIOS = [0.5, 0.25, 0.25]; // A : B : C
+const COL_RATIOS = [0.5, 0.25, 0.25]; // A : B : C — default (wide)
+const COL_RATIOS_NARROW = [0.40, 0.35, 0.25]; // A : B : C — mobile / narrow panel
 
 const DEFAULT_ROWS = [
   ['Inductance',           '—', 'H/km'],
@@ -30,14 +31,16 @@ const ROW_HDR_WIDTH = 30; // px — left column with row numbers
 
 /**
  * @param {HTMLElement} containerEl — #results-grid element
+ * @param {number[]} [ratios]       — optional [A, B, C] ratio overrides (must sum ≤ 1)
  * @returns {{ setCell(row, col, value): void, setData(rows): void }}
  */
-export function initResultsGrid(containerEl) {
+export function initResultsGrid(containerEl, ratios) {
   // Compute initial column widths from scroll container available space
   const scrollEl = containerEl.parentElement;
   const scrollW  = scrollEl ? scrollEl.clientWidth : 0;
   const available = Math.max(180, scrollW - ROW_HDR_WIDTH - (COLUMNS.length + 2));
-  const colWidths = COL_RATIOS.map(r => Math.max(40, Math.floor(available * r)));
+  const effectiveRatios = ratios ?? (available < 260 ? COL_RATIOS_NARROW : COL_RATIOS);
+  const colWidths = effectiveRatios.map(r => Math.max(40, Math.floor(available * r)));
 
   const table = document.createElement('table');
   table.id = 'eg-table';

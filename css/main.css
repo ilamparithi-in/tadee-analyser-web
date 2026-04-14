@@ -195,6 +195,16 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
 .dropdown-item:hover, .dropdown-item:active { background: navy; color: #fff; box-shadow: none; }
 .dropdown-item:disabled { color: grey; }
 .dropdown-separator { border: none; border-top: 1px solid grey; margin: 3px 4px; }
+/* Check-type menu items — fixed-width checkmark glyph area on the left */
+.dropdown-check { padding: 3px 18px 3px 3px; }
+.dropdown-check::before {
+  content: '';
+  display: inline-block;
+  width: 14px;
+  text-align: center;
+  margin-right: 2px;
+}
+.dropdown-check[data-checked="true"]::before { content: '\2713'; }
 
 /* Unit input row: number input + unit select side by side */
 .unit-input-row { display: flex; gap: 2px; align-items: center; }

@@ -46,13 +46,21 @@ export function initNotepadWindow(viewport) {
   const menuBar = win.querySelector('#menu-bar');
   if (menuBar) initMenuBar(menuBar);
 
+  // View menu pane toggles
+  _initViewMenu(win);
+
   // Splitter panel layout
   const layout = win.querySelector('#panel-layout');
   if (layout) initPanelLayout(layout);
 
-  // Results grid
+  // Results grid — pick column ratios based on the bottom panel's available width
   const grid = win.querySelector('#results-grid');
-  if (grid) _gridApi = initResultsGrid(grid);
+  if (grid) {
+    const scrollEl = grid.parentElement;
+    const scrollW  = scrollEl ? scrollEl.clientWidth : 0;
+    const ratios   = scrollW < 320 ? [0.38, 0.37, 0.25] : undefined; // narrow: tighten Label col
+    _gridApi = initResultsGrid(grid, ratios);
+  }
 
   // Compute button
   const btnCompute = win.querySelector('#btn-compute');
@@ -177,6 +185,41 @@ function _loadInputs(win) {
     reader.readAsText(file);
   });
   input.click();
+}
+
+function _initViewMenu(win) {
+  const topRow    = win.querySelector('#panel-top-row');
+  const panelLeft = win.querySelector('#panel-left');
+  const splitterV = win.querySelector('#splitter-v');
+  const panelRight  = win.querySelector('#panel-right');
+  const splitterH = win.querySelector('#splitter-h');
+  const panelBottom = win.querySelector('#panel-bottom');
+
+  function _apply() {
+    const showInput  = document.getElementById('view-pane-input')?.dataset.checked  === 'true';
+    const showCanvas = document.getElementById('view-pane-canvas')?.dataset.checked === 'true';
+    const showOutput = document.getElementById('view-pane-output')?.dataset.checked === 'true';
+
+    if (panelLeft) {
+      panelLeft.style.display = showInput ? '' : 'none';
+      // When canvas is hidden, let input pane grow to fill the full width
+      panelLeft.style.flex = (showInput && !showCanvas) ? '1' : '';
+    }
+    if (panelRight)  panelRight.style.display  = showCanvas ? '' : 'none';
+    if (splitterV)   splitterV.style.display   = (showInput && showCanvas) ? '' : 'none';
+    if (topRow)      topRow.style.display      = (showInput || showCanvas) ? '' : 'none';
+    if (panelBottom) panelBottom.style.display = showOutput ? '' : 'none';
+    if (splitterH)   splitterH.style.display   = ((showInput || showCanvas) && showOutput) ? '' : 'none';
+  }
+
+  ['view-pane-input', 'view-pane-canvas', 'view-pane-output'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+      btn.dataset.checked = btn.dataset.checked === 'true' ? 'false' : 'true';
+      _apply();
+    });
+  });
 }
 
 function _initSpacingToggle(win) {
