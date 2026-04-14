@@ -1,5 +1,5 @@
 /**
- * notepad.js — Notepad window content initialiser.
+ * analyzer.js — Analyzer window content initialiser.
  *
  * The Notepad window element is statically authored in index.html with
  * id="win-notepad". This module initialises its interactive sub-components:
@@ -175,10 +175,9 @@ function _loadInputs(win) {
 
 function _normaliseModel(raw) {
   const s = raw.toLowerCase().trim();
-  if (s === 'short')                        return 'short';
-  if (s.includes('pi') || s.includes('π')) return 'nominal pi';
-  if (s.includes('dist'))                   return 'distributed';
-  return 'short';
+  if (s.includes('pi') || s.includes('π')) return 1;
+  if (s.includes('dist'))                   return 2;
+  return 0;
 }
 
 function _fmtComplex(c) {
@@ -199,22 +198,22 @@ function _compute(win) {
   const bv = id => getBaseValue(id, win);
 
   const params = {
-    lineLength:        bv('line-length'),
-    loadMW:            bv('load-mw'),
-    pf:                n('power-factor'),
-    Vnom_kV:           bv('voltage'),
-    freq:              n('frequency'),
-    symmetry:          v('system-type')?.value?.toLowerCase() ?? 'symmetrical',
-    Dab:               n('phase-spacing-Dab') || bv('phase-spacing'),
-    Dbc:               n('phase-spacing-Dbc') || bv('phase-spacing'),
-    Dca:               n('phase-spacing-Dca') || bv('phase-spacing'),
-    D:                 bv('phase-spacing'),
-    noOfSCperBundle:   parseInt(v('bundle-count')?.value ?? '1', 10),
-    spacingBwSubConds: bv('sub-spacing'),
-    noOfStrands:       n('strands'),
-    diaStrands:        bv('dia-strands'),
-    RperSCperKm:       bv('resistance'),
-    model:             _normaliseModel(v('line-model')?.value ?? 'short'),
+    lineLengthKm:  bv('line-length'),
+    recvLoadMW:    bv('load-mw'),
+    recvPF:        n('power-factor'),
+    nomSyskV:      bv('voltage'),
+    frequency:     n('frequency'),
+    type:          v('system-type')?.value?.toLowerCase().includes('sym') ? 1 : 0,
+    Dab:           n('phase-spacing-Dab') || bv('phase-spacing'),
+    Dbc:           n('phase-spacing-Dbc') || bv('phase-spacing'),
+    Dca:           n('phase-spacing-Dca') || bv('phase-spacing'),
+    phaseSpacingM: bv('phase-spacing'),
+    scCount:       parseInt(v('bundle-count')?.value ?? '1', 10),
+    scSpacingM:    bv('sub-spacing'),
+    scStrands:     n('strands'),
+    strandDiaM:    bv('dia-strands'),
+    resSCPerKm:    bv('resistance'),
+    model:         _normaliseModel(v('line-model')?.value ?? 'Short'),
   };
 
   // ── Validate ───────────────────────────────────────────────────────────────
@@ -248,10 +247,10 @@ function _compute(win) {
   const pl   = calc.power_loss_MW_and_efficiency();
 
   const rows = [
-    ['Inductance',         lc.inductance.toExponential(4),         'H/km/phase'],
-    ['Capacitance',        lc.capacitance.toExponential(4),        'F/km/phase'],
-    ['XL',                 xl.Reactance_L.toFixed(4),              'Ω'],
-    ['XC',                 xl.Reactance_C.toFixed(4),              'Ω'],
+    ['Inductance',         lc.Lphkm.toExponential(4),              'H/km/phase'],
+    ['Capacitance',        lc.Cphkm.toExponential(4),              'F/km/phase'],
+    ['XL',                 xl.Xl.toFixed(4),                       'Ω'],
+    ['XC',                 xl.Xc.toFixed(4),                       'Ω'],
     ['R total',            calc.RperCond().toFixed(4),             'Ω'],
     ['A',                  _fmtComplex(abcd.A),                    ''],
     ['B',                  _fmtComplex(abcd.B),                    'Ω'],
@@ -262,8 +261,8 @@ function _compute(win) {
     ['Is',                 _fmtComplex(is),                        'A'],
     ['I charging',         _fmtComplex(ich),                       'A'],
     ['Voltage regulation', vr.toFixed(4),                          '%'],
-    ['Power loss (3φ)',     pl.power_loss_MW.toFixed(4),            'MW'],
-    ['Efficiency',         (pl.efficiency * 100).toFixed(2),       '%'],
+    ['Power loss (3φ)',     pl.loss.toFixed(4),                     'MW'],
+    ['Efficiency',         (pl.eta * 100).toFixed(2),              '%'],
     ['Zc',                 calc.Zc().toFixed(4),                   'Ω'],
     ['SIL (3φ)',            calc.SIL_MW().toFixed(4),               'MW'],
   ];

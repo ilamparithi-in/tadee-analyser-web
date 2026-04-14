@@ -47,48 +47,48 @@ class complex {
     //mabye sqrt function for gamma??
 }
 const lineParams = {
-    diaStrands: 0.01, noOfStrands: 7, spacingBwSubConds: 0.04, noOfSCperBundle: 4, symmetry: 'symmetrical', Dab: 20, Dbc: 24, Dca: 34,
-    D: 23, lineLength: 25, freq: 50, model: 'short', RperSCperKm: 0.1, Vnom_kV: 25,
-    loadMW: 140, pf: 0.8
+    strandDiaM: 0.01, scStrands: 7, scSpacingM: 0.04, scCount: 4, type: 1, Dab: 20, Dbc: 24, Dca: 34,
+    phaseSpacingM: 23, lineLengthKm: 25, frequency: 50, model: 0, resSCPerKm: 0.1, nomSyskV: 25,
+    recvLoadMW: 140, recvPF: 0.8
 }
 // length of line in km input
 
 export class lineCalculations {
     constructor(lineParams) {
-        this.diaStrands = lineParams.diaStrands;
-        this.noOfStrands = lineParams.noOfStrands;
-        this.spacingBwSubConds = lineParams.spacingBwSubConds;
-        this.noOfSCperBundle = lineParams.noOfSCperBundle;
-        this.symmetry = lineParams.symmetry;
+        this.strandDiaM = lineParams.strandDiaM;
+        this.scStrands = lineParams.scStrands;
+        this.scSpacingM = lineParams.scSpacingM;
+        this.scCount = lineParams.scCount;
+        this.type = lineParams.type;
         this.Dab = lineParams.Dab;
         this.Dbc = lineParams.Dbc;
         this.Dca = lineParams.Dca;
-        this.D = lineParams.D;
-        this.lineLength = lineParams.lineLength;
-        this.freq = lineParams.freq;
+        this.phaseSpacingM = lineParams.phaseSpacingM;
+        this.lineLengthKm = lineParams.lineLengthKm;
+        this.frequency = lineParams.frequency;
         this.model = lineParams.model;
-        this.RperSCperKm = lineParams.RperSCperKm;
-        this.Vnom_kV = lineParams.Vnom_kV / Math.sqrt(3); //internal conversion to phase. use as is.
+        this.resSCPerKm = lineParams.resSCPerKm;
+        this.nomSyskV = lineParams.nomSyskV / Math.sqrt(3); //internal conversion to phase. use as is.
 
-        this.loadMW = lineParams.loadMW;
-        this.pf = lineParams.pf;
+        this.recvLoadMW = lineParams.recvLoadMW;
+        this.recvPF = lineParams.recvPF;
 
     }
     LandCperPhasePerKm() {
-        const s = this.noOfStrands;
-        const d_s = this.diaStrands;
+        const s = this.scStrands;
+        const d_s = this.strandDiaM;
         const layers = (3 + Math.sqrt(12 * s - 3)) / 6;
         const diam = (2 * layers - 1) * d_s;
-        const spacing = this.spacingBwSubConds;
+        const spacing = this.scSpacingM;
         const r_c = diam / 2;
         const r_l = diam / 2 * 0.7788;
-        const noOfSC = this.noOfSCperBundle;
+        const noOfSC = this.scCount;
         let SGMDc, SGMDl, MGMD;
-        let symmetry = this.symmetry;
+        let type = this.type;
         const Dab = this.Dab;
         const Dbc = this.Dbc;
         const Dca = this.Dca;
-        const D = this.D;
+        const D = this.phaseSpacingM;
 
 
         if (noOfSC === 2) {
@@ -108,38 +108,38 @@ export class lineCalculations {
             throw new Error('invalid bundle size!');
         }
 
-        if (symmetry === 'symmetrical') {
+        if (type === 1) {
             MGMD = D;
         }
-        else if (symmetry === 'unsymmetrical') {
+        else {
             MGMD = Math.cbrt(Dab * Dbc * Dca);
         }
         const c = (2 * Math.PI * 8.85e-12 / Math.log(MGMD / SGMDc)) * 1000;
         const l = (2e-7 * Math.log(MGMD / SGMDl)) * 1000;
-        return { inductance: l, capacitance: c };
+        return { Lphkm: l, Cphkm: c };
 
     }
     XLandXC() {
         const landc = this.LandCperPhasePerKm();
-        const l = landc.inductance;
-        const c = landc.capacitance;
-        const lineLength = this.lineLength;
-        const f = this.freq;
+        const l = landc.Lphkm;
+        const c = landc.Cphkm;
+        const lineLength = this.lineLengthKm;
+        const f = this.frequency;
         const XL = 2 * Math.PI * f * l * lineLength;
         const XC = 1 / (2 * Math.PI * f * (c * lineLength));
-        return { Reactance_L: XL, Reactance_C: XC };
+        return { Xl: XL, Xc: XC };
     }
     RperCond() {
-        const RperSCperKm = this.RperSCperKm;
-        const noOfSC = this.noOfSCperBundle;
-        const R = RperSCperKm / noOfSC * this.lineLength;
+        const RperSCperKm = this.resSCPerKm;
+        const noOfSC = this.scCount;
+        const R = RperSCperKm / noOfSC * this.lineLengthKm;
         return R;
     }
     ABCDparams() {
         const model = this.model;
 
-        const XL = this.XLandXC().Reactance_L;
-        const XC = this.XLandXC().Reactance_C;
+        const XL = this.XLandXC().Xl;
+        const XC = this.XLandXC().Xc;
         if (XC === 0) {
             throw new Error('divide by 0 error!');
         }
@@ -148,13 +148,13 @@ export class lineCalculations {
         const R = this.RperCond();
         const Z = new complex(R, XL);
 
-        if (model === 'short') {
+        if (model === 0) {
             A = 1;
             B = Z;
             C = 0;
 
         }
-        else if (model === 'nominal pi') {
+        else if (model === 1) {
             const YZ = Z.multiply(Y);
             const YZdiv2 = YZ.divide(2);
             const YsquareZdiv2 = YZdiv2.multiply(Y);
@@ -164,20 +164,20 @@ export class lineCalculations {
             C = YsquareZdiv4.add(Y);
 
         }
-        else if (model === 'distributed') {
+        else if (model === 2) {
             //this is ur job pd
-            const f = this.freq;
-            const lineLength = this.lineLength;
+            const f = this.frequency;
+            const lineLength = this.lineLengthKm;
             const r = this.RperCond() / lineLength / 1000; //add
-            const l = this.LandCperPhasePerKm().inductance / 1000; //m
-            const c = this.LandCperPhasePerKm().capacitance / 1000; //m
+            const l = this.LandCperPhasePerKm().Lphkm / 1000; //m
+            const c = this.LandCperPhasePerKm().Cphkm / 1000; //m
             const Zc = Math.sqrt(l / c);
             const z = new complex(r, 2 * Math.PI * f * l);
             const y = new complex(0, 2 * Math.PI * f * c);
             const yz = y.multiply(z)
             const gamma = new complex(0, 2 * Math.PI * f * Math.sqrt(l * c)); //lossless or lossful?
             const beta = 2 * Math.PI * f * Math.sqrt(l * c); //per meter
-            A = Math.cos(beta * lineLength * 1000); //beta is per meter
+            A = Math.cos(beta * lineLength * 1000); //beta is per meter (lineLengthKm * 1000 = m)
             B = new complex(0, Math.sin(beta * lineLength * 1000) * Zc);
             C = new complex(0, Math.sin(beta * lineLength * 1000) / Zc);
         }
@@ -198,9 +198,9 @@ export class lineCalculations {
         return { A: A, B: B, C: C, D: D };
     }
     Ir() {
-        const Vr = this.Vnom_kV;
-        const loadMW = this.loadMW / 3;
-        const pf = this.pf;
+        const Vr = this.nomSyskV;
+        const loadMW = this.recvLoadMW / 3;
+        const pf = this.recvPF;
         const S = new complex(loadMW, loadMW / pf * Math.sin(Math.acos(pf)));
         const Ir_star = S.divide(Vr); //kA
         const Ir = Ir_star.conjugate();
@@ -212,7 +212,7 @@ export class lineCalculations {
         const B = this.ABCDparams().B;
         const C = this.ABCDparams().C;
         const D = this.ABCDparams().D;
-        const Vr = this.Vnom_kV;
+        const Vr = this.nomSyskV;
         const Ir = this.Ir();
         const AVr = A.multiply(Vr);
         const BIr = B.multiply(Ir);
@@ -225,7 +225,7 @@ export class lineCalculations {
         const B = this.ABCDparams().B;
         const C = this.ABCDparams().C;
         const D = this.ABCDparams().D;
-        const Vr = this.Vnom_kV;
+        const Vr = this.nomSyskV;
         const Ir = this.Ir();
         const CVr = C.multiply(Vr);
         const DIr = D.multiply(Ir);
@@ -245,7 +245,7 @@ export class lineCalculations {
     }
     percent_VR() {
         const A = this.ABCDparams().A;
-        const Vr = this.Vnom_kV;
+        const Vr = this.nomSyskV;
         const mod_Vr_fullLoad = Vr; //cuz we already took only magnitude anyways
         const Vs = this.Vs_kV_line_phase().phase;
         const mod_Vr_noLoad = Vs.modulus() / A.modulus();
@@ -255,7 +255,7 @@ export class lineCalculations {
     power_loss_MW_and_efficiency() {
         const Vs = this.Vs_kV_line_phase().phase;
         const Is = this.Is_A().divide(1000); //kA
-        const Vr = this.Vnom_kV;
+        const Vr = this.nomSyskV;
         const Ir = this.Ir();
         const Is_star = Is.conjugate();
         const Ir_star = Ir.conjugate();
@@ -264,18 +264,18 @@ export class lineCalculations {
         const power_loss = S_sending.subtract(S_receiving).multiply(3); //total 3 phase loss
         const power_loss_MW = power_loss.re;
         const efficiency = S_receiving.re / S_sending.re; //single phase and three phase efficiency same
-        return { power_loss_MW: power_loss_MW, efficiency: efficiency };
+        return { loss: power_loss_MW, eta: efficiency };
     }
     Zc() {
-        const l = this.LandCperPhasePerKm().inductance / 1000;
-        const c = this.LandCperPhasePerKm().capacitance / 1000;
+        const l = this.LandCperPhasePerKm().Lphkm / 1000;
+        const c = this.LandCperPhasePerKm().Cphkm / 1000;
         const Zc = Math.sqrt(l / c);
         return Zc;
 
     }
     SIL_MW() {
         const Zc = this.Zc(); //ohms
-        const Vr = this.Vnom_kV; //kV
+        const Vr = this.nomSyskV; //kV
         const SIL = (Vr * Vr) / Zc * 3; //three phase load consumption
         return SIL;
     }
