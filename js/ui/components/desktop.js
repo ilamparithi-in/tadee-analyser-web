@@ -16,6 +16,15 @@ const ICONS = [
     action() {
       const win = document.getElementById('win-notepad');
       if (!win) return;
+      // Set a viewport-responsive initial size so that restoring from maximized
+      // snaps to something sensible on both desktop and mobile.
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const isMobile = vw < 700;
+      win.style.width  = (isMobile ? Math.min(vw, 480)  : Math.min(vw * 0.85, 900)) + 'px';
+      win.style.height = (isMobile ? Math.min(vh, 520)  : Math.min(vh * 0.85, 580)) + 'px';
+      win.style.left   = '20px';
+      win.style.top    = '20px';
       raiseWindow(win);
       maximizeWindow(win);
     },
@@ -61,8 +70,23 @@ function _createIcon({ id, label, action }) {
   el.appendChild(img);
   el.appendChild(lbl);
 
-  // Double-click only
+  // Double-click (mouse) or double-tap (touch) opens the icon
   el.addEventListener('dblclick', () => action());
+
+  // Touch double-tap: two taps within 300 ms
+  let _lastTap = 0;
+  el.addEventListener('pointerdown', e => {
+    if (e.pointerType !== 'touch') return;
+    const now = Date.now();
+    if (now - _lastTap < 300) {
+      e.preventDefault();
+      e.stopPropagation(); // prevent viewport deactivation from undoing the focus
+      action();
+      _lastTap = 0;
+    } else {
+      _lastTap = now;
+    }
+  });
 
   // Single click — select (visual only)
   el.addEventListener('click', e => {

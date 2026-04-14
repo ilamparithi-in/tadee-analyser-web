@@ -64,8 +64,11 @@ export function initMenuBar(menuBarEl) {
       }
     });
 
-    // Hover-switch: if any menu already open, switch instantly (no animation)
-    btn.addEventListener('mouseenter', () => {
+    // Hover-switch: if any menu already open, switch instantly (no animation).
+    // Guard against touch pointerType — on touch, 'pointerenter' fires just before
+    // 'click', which would pre-open the menu and cause the click to toggle it closed.
+    btn.addEventListener('pointerenter', e => {
+      if (e.pointerType === 'touch') return;
       if (state.isMenuOpen && item !== state.activeMenu) {
         openMenu(item);
       }

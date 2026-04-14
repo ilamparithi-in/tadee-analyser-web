@@ -55,7 +55,7 @@ export function initWindowManager(viewport) {
   viewport.querySelectorAll(':scope > .window').forEach(win => _register(win));
 
   // Deactivate all windows when clicking outside any window
-  viewport.addEventListener('mousedown', e => {
+  viewport.addEventListener('pointerdown', e => {
     if (!e.target.closest('.window')) {
       registry.forEach((s, w) => {
         const tb = w.querySelector('.title-bar');
@@ -189,20 +189,21 @@ function _register(win) {
     state.taskBtn = taskBtn;
   }
 
-  // ── Focus on any mousedown ────────────────────────────────────────────────
-  win.addEventListener('mousedown', () => _focus(win));
+  // ── Focus on any pointerdown ──────────────────────────────────────────────
+  win.addEventListener('pointerdown', () => _focus(win));
 
   // ── Title-bar drag + double-click maximize ────────────────────────────────
   const titleBar = win.querySelector('.title-bar');
   if (titleBar) {
-    titleBar.addEventListener('mousedown', e => {
+    titleBar.addEventListener('pointerdown', e => {
       if (e.button !== 0) return;
       if (e.target.closest('.title-bar-controls')) return;
-      e.preventDefault(); // prevent browser text-selection from swallowing mouseup
+      e.preventDefault(); // prevent browser text-selection / scroll from interfering
       const s = registry.get(win);
       if (s.isMinimized || s.animating) return;
-      if (s.isMaximized) _startDragFromMaximized(win, e);
-      else               _startDrag(win, e);
+      titleBar.setPointerCapture(e.pointerId);
+      if (s.isMaximized) _startDragFromMaximized(win, e, titleBar);
+      else               _startDrag(win, e, titleBar);
     });
 
     titleBar.addEventListener('dblclick', e => {
@@ -215,6 +216,24 @@ function _register(win) {
       if (s.isMaximized) _restoreFromMax(win);
       else _maximize(win);
     });
+
+    // Touch double-tap to maximize (dblclick is unreliable on touch)
+    let _tbLastTap = 0;
+    titleBar.addEventListener('pointerup', e => {
+      if (e.pointerType !== 'touch') return;
+      if (e.target.closest('.title-bar-controls')) return;
+      const now = Date.now();
+      if (now - _tbLastTap < 300) {
+        if (win._cancelDrag) { win._cancelDrag(); }
+        const s = registry.get(win);
+        if (!s.maximizable || s.animating) return;
+        if (s.isMaximized) _restoreFromMax(win);
+        else _maximize(win);
+        _tbLastTap = 0;
+      } else {
+        _tbLastTap = now;
+      }
+    });
   }
 
   // ── Resize handles ────────────────────────────────────────────────────────
@@ -222,7 +241,7 @@ function _register(win) {
 
   // ── Title-bar control buttons ─────────────────────────────────────────────
   if (minBtn) {
-    minBtn.addEventListener('mousedown', e => e.stopPropagation());
+    minBtn.addEventListener('pointerdown', e => e.stopPropagation());
     minBtn.addEventListener('click', e => {
       e.stopPropagation();
       const s = registry.get(win);
@@ -233,7 +252,7 @@ function _register(win) {
   }
 
   if (maxBtn) {
-    maxBtn.addEventListener('mousedown', e => e.stopPropagation());
+    maxBtn.addEventListener('pointerdown', e => e.stopPropagation());
     maxBtn.addEventListener('click', e => {
       e.stopPropagation();
       const s = registry.get(win);
@@ -245,7 +264,7 @@ function _register(win) {
   }
 
   if (closeBtn) {
-    closeBtn.addEventListener('mousedown', e => e.stopPropagation());
+    closeBtn.addEventListener('pointerdown', e => e.stopPropagation());
     closeBtn.addEventListener('click', e => {
       e.stopPropagation();
       const s = registry.get(win);
@@ -296,7 +315,7 @@ function _focus(win) {
  * window to its pre-maximize size and pin the cursor at the same horizontal
  * fraction of the title bar. Subsequent movement uses the normal outline drag.
  */
-function _startDragFromMaximized(win, e) {
+function _startDragFromMaximized(win, e, el) {
   const s          = registry.get(win);
   const outline    = _getOutline();
   const mdX        = e.clientX;  // mousedown position
@@ -357,15 +376,15 @@ function _startDragFromMaximized(win, e) {
     outline.style.top  = (startWinY + e.clientY - firstMoveY) + 'px';
   }
 
-  function cancel() {
-    document.removeEventListener('mousemove', onMove);
-    document.removeEventListener('mouseup',   onUp);
+  function cancel(el) {
+    el.removeEventListener('pointermove', onMove);
+    el.removeEventListener('pointerup',   onUp);
     outline.style.display = 'none';
     win._cancelDrag = null;
   }
 
   function onUp(e) {
-    cancel();
+    cancel(e.currentTarget);
     if (!restored) return; // click without drag — leave window maximized, do nothing
     const newX = startWinX + e.clientX - firstMoveX;
     const newY = startWinY + e.clientY - firstMoveY;
@@ -375,14 +394,14 @@ function _startDragFromMaximized(win, e) {
     if (st) { st.x = newX; st.y = newY; }
   }
 
-  win._cancelDrag = cancel;
-  document.addEventListener('mousemove', onMove);
-  document.addEventListener('mouseup',   onUp);
+  win._cancelDrag = () => cancel(el);
+  el.addEventListener('pointermove', onMove);
+  el.addEventListener('pointerup',   onUp);
 }
 
 // ─── Drag (outline + teleport) ────────────────────────────────────────────────
 
-function _startDrag(win, e) {
+function _startDrag(win, e, el) {
   const outline     = _getOutline();
   const startMouseX = e.clientX;
   const startMouseY = e.clientY;
@@ -394,7 +413,7 @@ function _startDrag(win, e) {
   outline.style.top    = startWinY + 'px';
   outline.style.width  = win.offsetWidth  + 'px';
   outline.style.height = win.offsetHeight + 'px';
-  // NOTE: display stays 'none' until first mousemove
+  // NOTE: display stays 'none' until first pointermove
 
   function onMove(e) {
     if (!dragging) {
@@ -406,8 +425,8 @@ function _startDrag(win, e) {
   }
 
   function cancel() {
-    document.removeEventListener('mousemove', onMove);
-    document.removeEventListener('mouseup',   onUp);
+    el.removeEventListener('pointermove', onMove);
+    el.removeEventListener('pointerup',   onUp);
     outline.style.display = 'none';
     win._cancelDrag = null;
   }
@@ -423,8 +442,8 @@ function _startDrag(win, e) {
   }
 
   win._cancelDrag = cancel;
-  document.addEventListener('mousemove', onMove);
-  document.addEventListener('mouseup',   onUp);
+  el.addEventListener('pointermove', onMove);
+  el.addEventListener('pointerup',   onUp);
 }
 
 // ─── Resize handles (outline + teleport) ─────────────────────────────────────
@@ -435,12 +454,13 @@ function _addResizeHandles(win) {
     h.className   = 'wm-resize-handle';
     h.dataset.dir = dir;
     win.appendChild(h);
-    h.addEventListener('mousedown', e => {
+    h.addEventListener('pointerdown', e => {
       e.preventDefault();
       e.stopPropagation();
       const s = registry.get(win);
       if (!s || s.isMinimized || s.isMaximized || s.animating) return;
-      _startResize(win, dir, e);
+      h.setPointerCapture(e.pointerId);
+      _startResize(win, dir, e, h);
     });
   }
 }
@@ -454,7 +474,7 @@ function _calcBounds(dir, startLeft, startTop, startW, startH, dx, dy) {
   return { l, t, w, h };
 }
 
-function _startResize(win, dir, e) {
+function _startResize(win, dir, e, el) {
   const outline     = _getOutline();
   const startMouseX = e.clientX;
   const startMouseY = e.clientY;
@@ -479,8 +499,8 @@ function _startResize(win, dir, e) {
   }
 
   function onUp(e) {
-    document.removeEventListener('mousemove', onMove);
-    document.removeEventListener('mouseup',   onUp);
+    el.removeEventListener('pointermove', onMove);
+    el.removeEventListener('pointerup',   onUp);
     outline.style.display = 'none';
 
     const { l, t, w, h } = _calcBounds(dir, startLeft, startTop, startW, startH,
@@ -494,8 +514,8 @@ function _startResize(win, dir, e) {
     if (s) { s.x = l; s.y = t; }
   }
 
-  document.addEventListener('mousemove', onMove);
-  document.addEventListener('mouseup',   onUp);
+  el.addEventListener('pointermove', onMove);
+  el.addEventListener('pointerup',   onUp);
 }
 
 // ─── Minimize ─────────────────────────────────────────────────────────────────

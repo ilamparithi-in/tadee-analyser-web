@@ -16,8 +16,9 @@ export function initPanelLayout(layoutEl) {
   const splitterH   = layoutEl.querySelector('#splitter-h');
 
   // --- Vertical splitter (left ↔ right) ---
-  splitterV.addEventListener('mousedown', (e) => {
+  splitterV.addEventListener('pointerdown', (e) => {
     e.preventDefault();
+    splitterV.setPointerCapture(e.pointerId);
     const startX     = e.clientX;
     const startWidth = panelLeft.getBoundingClientRect().width;
     document.body.style.cursor = 'col-resize';
@@ -31,17 +32,18 @@ export function initPanelLayout(layoutEl) {
     function onUp() {
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
+      splitterV.removeEventListener('pointermove', onMove);
+      splitterV.removeEventListener('pointerup',   onUp);
     }
 
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
+    splitterV.addEventListener('pointermove', onMove);
+    splitterV.addEventListener('pointerup',   onUp);
   });
 
   // --- Horizontal splitter (top ↔ bottom) ---
-  splitterH.addEventListener('mousedown', (e) => {
+  splitterH.addEventListener('pointerdown', (e) => {
     e.preventDefault();
+    splitterH.setPointerCapture(e.pointerId);
     const startY      = e.clientY;
     const startHeight = panelBottom.getBoundingClientRect().height;
     document.body.style.cursor = 'row-resize';
@@ -56,11 +58,11 @@ export function initPanelLayout(layoutEl) {
     function onUp() {
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
+      splitterH.removeEventListener('pointermove', onMove);
+      splitterH.removeEventListener('pointerup',   onUp);
     }
 
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
+    splitterH.addEventListener('pointermove', onMove);
+    splitterH.addEventListener('pointerup',   onUp);
   });
 }

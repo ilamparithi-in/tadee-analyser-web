@@ -59,28 +59,44 @@ export function initTooltips(rootEl) {
   let _cursorX = 0;
   let _cursorY = 0;
 
-  rootEl.addEventListener('mousemove', e => {
+  // Track cursor position for mouse; pointer events carry coordinates for touch too
+  rootEl.addEventListener('pointermove', e => {
     _cursorX = e.clientX;
     _cursorY = e.clientY;
   });
 
-  rootEl.addEventListener('mouseover', e => {
+  // Mouse hover trigger
+  rootEl.addEventListener('pointerover', e => {
+    if (e.pointerType === 'touch') return; // touch uses long-press below
     const target = e.target.closest('[data-tooltip]');
     if (!target) { _hide(); return; }
-
     const text = target.dataset.tooltip;
     if (!text) { _hide(); return; }
-
     clearTimeout(_timer);
     _timer = setTimeout(() => _show(text, _cursorX, _cursorY), DELAY_MS);
   });
 
-  rootEl.addEventListener('mouseout', e => {
+  rootEl.addEventListener('pointerout', e => {
+    if (e.pointerType === 'touch') return;
     const target = e.target.closest('[data-tooltip]');
     if (!target) return;
     _hide();
   });
 
-  rootEl.addEventListener('mousedown', _hide);
+  // Touch long-press trigger
+  let _touchTimer = null;
+  rootEl.addEventListener('pointerdown', e => {
+    _hide();
+    if (e.pointerType !== 'touch') return;
+    const target = e.target.closest('[data-tooltip]');
+    if (!target) return;
+    const text = target.dataset.tooltip;
+    if (!text) return;
+    _touchTimer = setTimeout(() => _show(text, e.clientX, e.clientY), DELAY_MS);
+  });
+  rootEl.addEventListener('pointerup',     () => { clearTimeout(_touchTimer); });
+  rootEl.addEventListener('pointermove',   e  => { if (e.pointerType === 'touch') clearTimeout(_touchTimer); }, { capture: true });
+  rootEl.addEventListener('pointercancel', () => { clearTimeout(_touchTimer); _hide(); });
+
   rootEl.addEventListener('scroll', _hide, true);
 }

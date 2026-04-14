@@ -126,7 +126,7 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
   box-shadow: inset -1px -1px #fff, inset 1px 1px #808080;
 }
 
-/* ─── WM windows ──────────────────────────────────────────────────────────── */.title-bar { cursor: default; -webkit-user-select: none; user-select: none; }.wm-resize-handle { position: absolute; z-index: 1; }
+/* ─── WM windows ──────────────────────────────────────────────────── */.title-bar { cursor: default; -webkit-user-select: none; user-select: none; touch-action: none; }.wm-resize-handle { position: absolute; z-index: 1; touch-action: none; }
 .wm-resize-handle[data-dir="n"]  { top: 0;    left: 8px;    right: 8px;   height: 4px; cursor: n-resize;  }
 .wm-resize-handle[data-dir="s"]  { bottom: 0; left: 8px;    right: 8px;   height: 4px; cursor: s-resize;  }
 .wm-resize-handle[data-dir="e"]  { top: 8px;  bottom: 8px;  right: 0;     width:  4px; cursor: e-resize;  }
@@ -192,7 +192,7 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
   min-width: unset; padding: 3px 18px;
   font-size: 11px; cursor: default;
 }
-.dropdown-item:hover { background: navy; color: #fff; box-shadow: none; }
+.dropdown-item:hover, .dropdown-item:active { background: navy; color: #fff; box-shadow: none; }
 .dropdown-item:disabled { color: grey; }
 .dropdown-separator { border: none; border-top: 1px solid grey; margin: 3px 4px; }
 
@@ -268,13 +268,16 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
   flex: 0 0 4px; cursor: col-resize;
   background: silver;
   box-shadow: inset -1px 0 #0a0a0a, inset 1px 0 #fff;
+  touch-action: none;
 }
 .splitter-h {
   flex: 0 0 4px; cursor: row-resize;
   background: silver;
   box-shadow: inset 0 -1px #0a0a0a, inset 0 1px #fff;
+  touch-action: none;
 }
-.splitter-v:hover, .splitter-h:hover { background: #b0b0b0; }
+.splitter-v:hover, .splitter-v:active,
+.splitter-h:hover, .splitter-h:active { background: #b0b0b0; }
 /* Status bar fields */
 #sb-hover { flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #sb-time  { flex: 0 0 90px; text-align: center; }
