@@ -61,6 +61,18 @@ export function initWindowManager(viewport) {
       });
     }
   });
+
+  // Keep maximized windows filling the viewport when it resizes
+  new ResizeObserver(() => {
+    const vw = viewport.clientWidth;
+    const vh = viewport.clientHeight;
+    registry.forEach((s, w) => {
+      if (s.isMaximized && !s.animating) {
+        w.style.width  = vw + 'px';
+        w.style.height = vh + 'px';
+      }
+    });
+  }).observe(viewport);
 }
 
 /**
