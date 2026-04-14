@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>98.css Demo</title>
+  <title>TADEE Group 7</title>
   <link rel="stylesheet" href="https://unpkg.com/98.css" />
   <script type="importmap">
     { "imports": { "three": "https://unpkg.com/three@0.163.0/build/three.module.js" } }
@@ -176,7 +176,7 @@
                   </div>
                 </div>
                 <div class="field-row-stacked" style="margin-top:4px;">
-                  <label for="bundle-count">Bundle count</label>
+                  <label for="bundle-count">Sub-conductor count</label>
                   <select id="bundle-count">
                     <option>2</option>
                     <option>3</option>
@@ -200,6 +200,17 @@
                 <div class="field-row-stacked">
                   <label for="strands">Number of strands</label>
                   <input id="strands" type="number" min="1" step="1" />
+                </div>
+                <div class="field-row-stacked" style="margin-top:4px;">
+                  <label for="dia-strands">Strand diameter</label>
+                  <div class="unit-input-row">
+                    <input id="dia-strands" type="number" min="0" step="any" />
+                    <select id="dia-strands-unit" data-unit-for="dia-strands" data-base-unit="m">
+                      <option value="mm" data-to-base="0.001">mm</option>
+                      <option value="cm" data-to-base="0.01">cm</option>
+                      <option value="m"  data-to-base="1" selected>m</option>
+                    </select>
+                  </div>
                 </div>
                 <div class="field-row-stacked" style="margin-top:4px;">
                   <label for="resistance">Resistance</label>

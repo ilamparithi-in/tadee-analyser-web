@@ -14,7 +14,8 @@ import { initMenuBar }      from '../components/menuSystem.js';
 import { initPanelLayout }  from '../components/panels.js';
 import { initResultsGrid }  from '../components/grid.js';
 import { initTooltips }     from '../components/tooltip.js';
-import { initUnitInputs }   from '../components/unitInput.js';
+import { initUnitInputs, getBaseValue } from '../components/unitInput.js';
+import { lineCalculations } from '../../tadee.js';
 
 export function initNotepadWindow(viewport) {
   const win = document.getElementById('win-notepad');
@@ -27,6 +28,20 @@ export function initNotepadWindow(viewport) {
   const form = win.querySelector('#input-form');
   if (form) initUnitInputs(form);
 
+  // Prevent scroll-wheel on focused number inputs from scrolling the panel.
+  // stopPropagation alone doesn't block native CSS overflow scroll — preventDefault
+  // is required, so we also manually apply the step to preserve increment behaviour.
+  win.querySelectorAll('input[type=number]').forEach(input => {
+    input.addEventListener('wheel', e => {
+      if (document.activeElement !== input) return;
+      e.preventDefault();
+      const step = parseFloat(input.step) || 1;
+      const cur  = parseFloat(input.value) || 0;
+      input.value = e.deltaY < 0 ? cur + step : cur - step;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    }, { passive: false });
+  });
+
   // Menu bar
   const menuBar = win.querySelector('#menu-bar');
   if (menuBar) initMenuBar(menuBar);
@@ -37,11 +52,227 @@ export function initNotepadWindow(viewport) {
 
   // Results grid
   const grid = win.querySelector('#results-grid');
-  if (grid) initResultsGrid(grid);
+  if (grid) _gridApi = initResultsGrid(grid);
+
+  // Compute button
+  const btnCompute = win.querySelector('#btn-compute');
+  if (btnCompute) {
+    btnCompute.addEventListener('click', () => _compute(win));
+  }
+
+  // Save / Load buttons
+  const btnSave = win.querySelector('#btn-save-input');
+  if (btnSave) btnSave.addEventListener('click', () => _saveInputs(win));
+
+  const btnLoad = win.querySelector('#btn-load-input');
+  if (btnLoad) btnLoad.addEventListener('click', () => _loadInputs(win));
 
   // Three.js geometry viewer
   const container = win.querySelector('#canvas-container');
   if (container) _initThreeJs(container);
+}
+
+let _gridApi = null;
+
+// ─── Input field descriptors ─────────────────────────────────────────────────
+// Each entry: [inputId, hasUnitSelect]
+const INPUT_FIELDS = [
+  ['line-length',    true],
+  ['load-mw',        true],
+  ['power-factor',   false],
+  ['voltage',        true],
+  ['frequency',      false],
+  ['phase-spacing',  true],
+  ['sub-spacing',    true],
+  ['strands',        false],
+  ['dia-strands',    true],
+  ['resistance',     true],
+];
+const SELECT_FIELDS = ['system-type', 'bundle-count', 'line-model'];
+
+function _collectInputs(win) {
+  const data = {};
+  INPUT_FIELDS.forEach(([id, hasUnit]) => {
+    const el = win.querySelector('#' + id);
+    if (!el) return;
+    data[id] = el.value;
+    if (hasUnit) {
+      const sel = win.querySelector(`select[data-unit-for="${id}"]`);
+      if (sel) data[id + '-unit'] = sel.value;
+    }
+  });
+  SELECT_FIELDS.forEach(id => {
+    const el = win.querySelector('#' + id);
+    if (el) data[id] = el.value;
+  });
+  return data;
+}
+
+function _applyInputs(win, data) {
+  INPUT_FIELDS.forEach(([id, hasUnit]) => {
+    if (hasUnit) {
+      // Set unit first so unitInput conversion doesn't clobber the value
+      const unitKey = id + '-unit';
+      if (data[unitKey] != null) {
+        const sel = win.querySelector(`select[data-unit-for="${id}"]`);
+        if (sel) sel.value = data[unitKey];
+      }
+    }
+    if (data[id] != null) {
+      const el = win.querySelector('#' + id);
+      if (el) el.value = data[id];
+    }
+  });
+  SELECT_FIELDS.forEach(id => {
+    if (data[id] != null) {
+      const el = win.querySelector('#' + id);
+      if (el) el.value = data[id];
+    }
+  });
+}
+
+function _saveInputs(win) {
+  const data    = _collectInputs(win);
+  const now     = new Date();
+  const pad     = n => String(n).padStart(2, '0');
+  const stamp   = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}` +
+                  `-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+  const json    = JSON.stringify(data, null, 2);
+  const blob    = new Blob([json], { type: 'application/json' });
+  const url     = URL.createObjectURL(blob);
+  const a       = document.createElement('a');
+  a.href        = url;
+  a.download    = `tadee-inputs_${stamp}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  const sb = win.querySelector('#sb-status');
+  if (sb) sb.textContent = 'Saved';
+}
+
+function _loadInputs(win) {
+  const input    = document.createElement('input');
+  input.type     = 'file';
+  input.accept   = '.json,application/json';
+  input.addEventListener('change', () => {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const data = JSON.parse(e.target.result);
+        _applyInputs(win, data);
+        const sb = win.querySelector('#sb-status');
+        if (sb) sb.textContent = 'Loaded';
+      } catch {
+        const sb = win.querySelector('#sb-status');
+        if (sb) sb.textContent = 'Load failed: invalid JSON';
+      }
+    };
+    reader.readAsText(file);
+  });
+  input.click();
+}
+
+function _normaliseModel(raw) {
+  const s = raw.toLowerCase().trim();
+  if (s === 'short')                        return 'short';
+  if (s.includes('pi') || s.includes('π')) return 'nominal pi';
+  if (s.includes('dist'))                   return 'distributed';
+  return 'short';
+}
+
+function _fmtComplex(c) {
+  if (typeof c === 'number') return c.toFixed(4);
+  const sign = c.im < 0 ? ' - ' : ' + ';
+  return `${c.re.toFixed(4)}${sign}j${Math.abs(c.im).toFixed(4)}`;
+}
+
+function _compute(win) {
+  const sbStatus = win.querySelector('#sb-status');
+  const sbTime   = win.querySelector('#sb-time');
+
+  const t0 = performance.now();
+
+  // ── Read form values ───────────────────────────────────────────────────────
+  const v = id => win.querySelector('#' + id);
+  const n = id => parseFloat(v(id)?.value ?? '');
+  const bv = id => getBaseValue(id, win);
+
+  const params = {
+    lineLength:        bv('line-length'),
+    loadMW:            bv('load-mw'),
+    pf:                n('power-factor'),
+    Vnom_kV:           bv('voltage'),
+    freq:              n('frequency'),
+    symmetry:          v('system-type')?.value?.toLowerCase() ?? 'symmetrical',
+    Dab:               n('phase-spacing-Dab') || bv('phase-spacing'),
+    Dbc:               n('phase-spacing-Dbc') || bv('phase-spacing'),
+    Dca:               n('phase-spacing-Dca') || bv('phase-spacing'),
+    D:                 bv('phase-spacing'),
+    noOfSCperBundle:   parseInt(v('bundle-count')?.value ?? '1', 10),
+    spacingBwSubConds: bv('sub-spacing'),
+    noOfStrands:       n('strands'),
+    diaStrands:        bv('dia-strands'),
+    RperSCperKm:       bv('resistance'),
+    model:             _normaliseModel(v('line-model')?.value ?? 'short'),
+  };
+
+  // ── Validate ───────────────────────────────────────────────────────────────
+  const bad = Object.entries(params).filter(([, v]) => isNaN(v) && typeof v !== 'string');
+  if (bad.length) {
+    if (sbStatus) sbStatus.textContent = 'Error: fill all fields';
+    return;
+  }
+
+  // ── Run ────────────────────────────────────────────────────────────────────
+  let calc, err;
+  try {
+    calc = new lineCalculations(params);
+  } catch (e) {
+    err = e;
+  }
+
+  if (err || !calc) {
+    if (sbStatus) sbStatus.textContent = 'Compute error';
+    console.error(err);
+    return;
+  }
+
+  const lc   = calc.LandCperPhasePerKm();
+  const xl   = calc.XLandXC();
+  const abcd = calc.ABCDparams();
+  const vs   = calc.Vs_kV_line_phase();
+  const is   = calc.Is_A();
+  const ich  = calc.Icharging_A();
+  const vr   = calc.percent_VR();
+  const pl   = calc.power_loss_MW_and_efficiency();
+
+  const rows = [
+    ['Inductance',         lc.inductance.toExponential(4),         'H/km/phase'],
+    ['Capacitance',        lc.capacitance.toExponential(4),        'F/km/phase'],
+    ['XL',                 xl.Reactance_L.toFixed(4),              'Ω'],
+    ['XC',                 xl.Reactance_C.toFixed(4),              'Ω'],
+    ['R total',            calc.RperCond().toFixed(4),             'Ω'],
+    ['A',                  _fmtComplex(abcd.A),                    ''],
+    ['B',                  _fmtComplex(abcd.B),                    'Ω'],
+    ['C',                  _fmtComplex(abcd.C),                    'S'],
+    ['Ir',                 _fmtComplex(calc.Ir()),                 'kA'],
+    ['Vs (phase)',          _fmtComplex(vs.phase),                  'kV'],
+    ['Vs (line)',           _fmtComplex(vs.linetoline),             'kV'],
+    ['Is',                 _fmtComplex(is),                        'A'],
+    ['I charging',         _fmtComplex(ich),                       'A'],
+    ['Voltage regulation', vr.toFixed(4),                          '%'],
+    ['Power loss (3φ)',     pl.power_loss_MW.toFixed(4),            'MW'],
+    ['Efficiency',         (pl.efficiency * 100).toFixed(2),       '%'],
+    ['Zc',                 calc.Zc().toFixed(4),                   'Ω'],
+    ['SIL (3φ)',            calc.SIL_MW().toFixed(4),               'MW'],
+  ];
+
+  if (_gridApi) _gridApi.setData(rows);
+
+  const elapsed = (performance.now() - t0).toFixed(1);
+  if (sbTime)   sbTime.textContent   = `Time: ${elapsed} ms`;
+  if (sbStatus) sbStatus.textContent = 'Done';
 }
 
 function _initThreeJs(container) {

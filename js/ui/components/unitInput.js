@@ -27,7 +27,7 @@ export function initUnitInputs(formEl) {
  * @param {HTMLElement} [scope=document]
  */
 export function getBaseValue(inputId, scope = document) {
-  const input = scope.getElementById(inputId);
+  const input = scope.querySelector('#' + inputId);
   if (!input) return NaN;
   const sel = scope.querySelector(`select[data-unit-for="${inputId}"]`);
   const raw = parseFloat(input.value);

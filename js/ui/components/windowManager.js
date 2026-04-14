@@ -101,6 +101,11 @@ export function raiseWindow(winEl) {
   _focus(winEl);
 }
 
+export function maximizeWindow(winEl) {
+  const s = registry.get(winEl);
+  if (s && !s.isMaximized && !s.isMinimized && !s.animating) _maximize(winEl);
+}
+
 export function addWindow(winEl, viewportEl) {
   if (!_viewport) _viewport = viewportEl;
   if (!viewportEl.contains(winEl)) viewportEl.appendChild(winEl);

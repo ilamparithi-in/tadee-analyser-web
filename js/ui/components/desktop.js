@@ -1,4 +1,4 @@
-import { raiseWindow } from './windowManager.js';
+import { raiseWindow, maximizeWindow } from './windowManager.js';
 
 const ICONS = [
   {
@@ -15,7 +15,9 @@ const ICONS = [
     img:   null,
     action() {
       const win = document.getElementById('win-notepad');
-      if (win) raiseWindow(win);
+      if (!win) return;
+      raiseWindow(win);
+      maximizeWindow(win);
     },
   },
 ];

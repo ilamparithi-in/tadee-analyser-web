@@ -225,7 +225,7 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
 /* ─── Panel layout ────────────────────────────────────────────────────────── */
 #panel-layout {
   --left-width: 260px;
-  --bottom-height: 80px;
+  --bottom-height: 180px;
   display: flex; flex-direction: column;
   height: 100%;
 }
@@ -290,7 +290,23 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
 }
 
 /* ─── Excel 97 results grid ───────────────────────────────────────────────── */
-#results-grid { display: inline-block; min-width: 100%; }
+#results-grid { display: block; min-width: 100%; font-size: 11px; font-family: inherit; }
+.result-row {
+  display: flex; border-bottom: 1px solid #d4d0c8;
+}
+.result-row:first-child { border-top: 1px solid #d4d0c8; }
+.result-label {
+  flex: 0 0 50%; padding: 2px 4px;
+  background: #d4d0c8;
+  border-right: 1px solid #808080;
+  box-shadow: inset -1px 0 #808080, inset 1px 0 #fff;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.result-value {
+  flex: 1; padding: 2px 4px; background: #fff;
+  font-family: monospace; font-size: 11px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 #eg-table { border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: 11px; font-family: inherit; }
 #eg-table thead { position: sticky; top: 0; z-index: 2; }
 .eg-corner, .eg-col-hdr {
