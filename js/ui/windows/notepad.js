@@ -14,6 +14,7 @@ import { initMenuBar }      from '../components/menuSystem.js';
 import { initPanelLayout }  from '../components/panels.js';
 import { initResultsGrid }  from '../components/grid.js';
 import { initTooltips }     from '../components/tooltip.js';
+import { initUnitInputs }   from '../components/unitInput.js';
 
 export function initNotepadWindow(viewport) {
   const win = document.getElementById('win-notepad');
@@ -21,6 +22,10 @@ export function initNotepadWindow(viewport) {
 
   // Tooltips
   initTooltips(win);
+
+  // Unit dropdowns
+  const form = win.querySelector('#input-form');
+  if (form) initUnitInputs(form);
 
   // Menu bar
   const menuBar = win.querySelector('#menu-bar');

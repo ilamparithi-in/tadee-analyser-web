@@ -172,6 +172,23 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
 .dropdown-item:disabled { color: grey; }
 .dropdown-separator { border: none; border-top: 1px solid grey; margin: 3px 4px; }
 
+/* Unit input row: number input + unit select side by side */
+.unit-input-row { display: flex; gap: 2px; align-items: center; }
+/* 98.css .field-row-stacked *+* adds margin-top to every adjacent sibling, including
+   the select next to the input — reset it so they stay on the same baseline */
+.unit-input-row * + * { margin-top: 0; }
+/* line-height:2 from 98.css inflates input[type=number] beyond its height:22px — reset it */
+.unit-input-row input  { flex: 1; min-width: 0; line-height: normal; height: 22px; }
+.unit-input-row select { flex: 0 0 auto; width: 70px; height: 22px; }
+/* Override 98.css navy focus highlight — Win98 selects don't invert the box itself */
+.unit-input-row select:focus        { background-color: #fff; color: #222; }
+.unit-input-row select:focus option { background-color: #fff; color: #222; }
+/* Pressed appearance while dropdown is open (select retains :focus while open) */
+.unit-input-row select:focus {
+  box-shadow: inset -1px -1px #fff, inset 1px 1px #0a0a0a,
+              inset -2px -2px #dfdfdf, inset 2px 2px grey;
+}
+
 /* ─── Toolbar ─────────────────────────────────────────────────────────────── */
 .toolbar {
   display: flex; align-items: center; gap: 2px;
