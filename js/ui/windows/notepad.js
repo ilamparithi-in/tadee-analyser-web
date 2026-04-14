@@ -13,10 +13,14 @@ import * as THREE           from 'three';
 import { initMenuBar }      from '../components/menuSystem.js';
 import { initPanelLayout }  from '../components/panels.js';
 import { initResultsGrid }  from '../components/grid.js';
+import { initTooltips }     from '../components/tooltip.js';
 
 export function initNotepadWindow(viewport) {
   const win = document.getElementById('win-notepad');
   if (!win) return;
+
+  // Tooltips
+  initTooltips(win);
 
   // Menu bar
   const menuBar = win.querySelector('#menu-bar');

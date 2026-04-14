@@ -1,5 +1,26 @@
 :root { --taskbar-h: 30px; }
 
+/* ─── Win98 tooltip ──────────────────────────────────────────────────────── */
+.win98-tooltip {
+  display: none;
+  position: fixed;
+  z-index: 99999;
+  overflow: hidden; /* clip container — same pattern as .dropdown */
+  pointer-events: none;
+}
+.win98-tooltip-inner {
+  background: #ffffe1;
+  border: 1px solid #000;
+  padding: 2px 4px;
+  font-size: 11px;
+  font-family: 'Pixelated MS Sans Serif', sans-serif;
+  color: #000;
+  white-space: nowrap;
+}
+.win98-tooltip-inner.animate-open {
+  animation: slide-down 100ms steps(8, end) both;
+}
+
 /* Disable smooth scrolling globally — Windows 98 rule: all scrolling must be instant */
 html { scroll-behavior: auto; }
 * { scroll-behavior: auto !important; }
@@ -120,13 +141,16 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
 }
 .dropdown {
   display: none; position: absolute; top: 100%; left: 0;
-  background: silver; z-index: 100; min-width: 140px;
-  overflow: hidden; /* cutout — clips the sliding card */
+  z-index: 100; min-width: 140px;
+  overflow: hidden; /* clipping vessel only — no background here */
+}
+.menu-item.open > .dropdown { display: block; }
+.dropdown-inner {
+  padding: 2px 0;
+  background: silver;
   box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #fff,
               inset -2px -2px grey, inset 2px 2px #dfdfdf;
 }
-.menu-item.open > .dropdown { display: block; }
-.dropdown-inner { padding: 2px 0; }
 .menu-item.open > .dropdown > .dropdown-inner {
   animation: slide-down 100ms steps(8, end) both;
   /* 'both' fill-mode: applies 'from' before first tick → card hidden before animation starts */
@@ -210,6 +234,11 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
   box-shadow: inset 0 -1px #0a0a0a, inset 0 1px #fff;
 }
 .splitter-v:hover, .splitter-h:hover { background: #b0b0b0; }
+/* Status bar fields */
+#sb-hover { flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#sb-time  { flex: 0 0 90px; text-align: center; }
+#sb-status { flex: 0 0 100px; text-align: center; }
+
 /* Canvas inside geometry panel */
 #canvas-container { flex: 1; overflow: hidden; margin: 2px; }
 #canvas-container canvas { display: block; }

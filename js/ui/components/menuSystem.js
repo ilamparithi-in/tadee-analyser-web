@@ -33,7 +33,7 @@ export function initMenuBar(menuBarEl) {
     const inner = item.querySelector('.dropdown-inner');
     if (!inner) return;
 
-    const animate = shouldAnimate() && !state.isMenuOpen; // no anim during hover-switch
+    const animate = shouldAnimate(); // always animate on hover-switch (Win98 behaviour)
     closeAll(false); // close without updating timestamp (hover-switch)
 
     item.classList.add('open');

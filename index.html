@@ -91,11 +91,15 @@
     </nav>
 
     <div class="toolbar">
-      <button>New</button>
-      <button>Open</button>
-      <button>Save</button>
+      <button id="btn-compute"    data-tooltip="Run the transmission line computation">Compute</button>
       <div class="toolbar-separator"></div>
-      <button>Print</button>
+      <button id="btn-save-input" data-tooltip="Save current input parameters to a file">Save Input</button>
+      <button id="btn-load-input" data-tooltip="Load input parameters from a file">Load Input</button>
+      <div class="toolbar-separator"></div>
+      <button id="btn-batch-mode" data-tooltip="Run computations over a range of parameter values">Batch Mode</button>
+      <div class="toolbar-separator"></div>
+      <button id="btn-view-code" data-tooltip="View generated source code">View Code</button>
+      <button id="btn-view-calc" data-tooltip="Show the formulae used and the calculations">View Calculations</button>
     </div>
 
     <!-- Panel layout: left+right side by side, bottom full-width -->
@@ -207,7 +211,9 @@
     </div>
     <!-- Window-level status bar (98.css classes) -->
     <div class="status-bar">
-      <p class="status-bar-field" id="app-status-bar">No calculation performed</p>
+      <p class="status-bar-field" id="sb-hover"></p>
+      <p class="status-bar-field" id="sb-time">Time: 0 ms</p>
+      <p class="status-bar-field" id="sb-status">Ready</p>
     </div>
   </div>
 
