@@ -21,17 +21,23 @@ function _defaultRatios(available) {
 }
 
 const DEFAULT_ROWS = [
-  ['Inductance',           '—', 'H/km'],
-  ['Capacitance',          '—', 'F/km'],
-  ['Inductive reactance',  '—', 'Ω'   ],
-  ['Capacitive reactance', '—', 'Ω'   ],
-  ['Sending end voltage',  '—', 'kV'  ],
-  ['Sending end current',  '—', 'A'   ],
-  ['Voltage regulation',   '—', '%'   ],
-  ['Power loss',           '—', 'MW'  ],
-  ['Efficiency',           '—', '%'   ],
-  ['Surge impedance',      '—', 'Ω'   ],
-  ['SIL',                  '—', 'MW'  ],
+  ['Inductance per phase per km',  '—', 'H/km'],
+  ['Capacitance per phase per km', '—', 'F/km'],
+  ['Inductive reactance XL',       '—', 'Ω'   ],
+  ['Capacitive reactance XC',      '—', 'Ω'   ],
+  ['A',                            '—', ''    ],
+  ['B',                            '—', 'Ω'   ],
+  ['C',                            '—', 'S'   ],
+  ['D',                            '—', ''    ],
+  ['Sending end voltage (phase)',  '—', 'kV'  ],
+  ['Sending end voltage (line)',   '—', 'kV'  ],
+  ['Sending end current Is',       '—', 'A'   ],
+  ['Charging current Ic',          '—', 'A'   ],
+  ['Voltage regulation',           '—', '%'   ],
+  ['Power loss (3φ)',               '—', 'MW'  ],
+  ['Transmission efficiency',      '—', '%'   ],
+  ['Surge impedance Zc',           '—', 'Ω'   ],
+  ['Surge impedance loading SIL',  '—', 'MW'  ],
 ];
 
 const ROW_HDR_WIDTH = 30; // px — left column with row numbers

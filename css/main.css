@@ -430,8 +430,8 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
   box-sizing: border-box;
 }
 #calc-viewer-content {
-  font-family: 'Times New Roman', serif;
-  font-size: 13px; line-height: 1.7;
+  font-family: 'Pixelated MS Sans Serif', 'Arial', sans-serif;
+  font-size: 12px; line-height: 1.7;
   max-width: 760px;
   margin: 0 auto;
 }
@@ -442,4 +442,8 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
 #calc-viewer-content h3 { font-size: 14px; margin-top: 1.4em; }
 #calc-viewer-content h4 { font-size: 12px; margin-top: 1em; }
 #calc-viewer-content p  { margin: 0.5em 0; }
-#calc-viewer-content .katex-display { overflow-x: auto; margin: 0.8em 0; }
+#calc-viewer-content .katex-display {
+  overflow: visible;   /* let #calc-viewer-scroll handle any horizontal overflow */
+  margin: 0.8em 0;
+  padding-bottom: 0.2em; /* prevent descenders being clipped by a scrollbar */
+}

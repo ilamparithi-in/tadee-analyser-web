@@ -120,7 +120,7 @@ function _print() {
     h3 { font-size: 14pt; margin-top: 1.5em; }
     h4 { font-size: 12pt; margin-top: 1em; }
     p  { line-height: 1.6; }
-    .katex-display { margin: 1em 0; overflow-x: auto; }
+    .katex-display { margin: 1em 0; overflow: visible; padding-bottom: 0.2em; }
   </style>
 </head>
 <body>
