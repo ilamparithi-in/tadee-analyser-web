@@ -63,12 +63,15 @@ export function initNotepadWindow(viewport) {
     btnCompute.addEventListener('click', () => _compute(win));
   }
 
-  // Save / Load buttons
+  // Save / Load / Export buttons
   const btnSave = win.querySelector('#btn-save-input');
   if (btnSave) btnSave.addEventListener('click', () => _saveInputs(win));
 
   const btnLoad = win.querySelector('#btn-load-input');
   if (btnLoad) btnLoad.addEventListener('click', () => _loadInputs(win));
+
+  const btnExport = win.querySelector('#btn-export-output');
+  if (btnExport) btnExport.addEventListener('click', () => _exportOutput(win));
 
   // Spacing toggle (symmetric vs unsymmetric)
   _initSpacingToggle(win);
@@ -79,6 +82,7 @@ export function initNotepadWindow(viewport) {
 }
 
 let _gridApi = null;
+let _lastResults = null; // populated after a successful compute; enables Export Output
 
 // ─── Input field descriptors ─────────────────────────────────────────────────
 // Each entry: [inputId, hasUnitSelect]
@@ -97,45 +101,69 @@ const INPUT_FIELDS = [
   ['dia-strands',    true],
   ['resistance',     true],
 ];
-const SELECT_FIELDS = ['system-type', 'bundle-count', 'line-model'];
+const SELECT_FIELDS = ['system-type', 'bundle-count', 'line-model']; // kept for reference
+
+// Contract-name mapping for save/load  (input-id → contract key)
+const INPUT_CONTRACT = {
+  'line-length':   'lineLengthKm',
+  'load-mw':       'recvLoadMW',
+  'power-factor':  'recvPF',
+  'voltage':       'nomSyskV',
+  'frequency':     'frequency',
+  'phase-spacing': 'phaseSpacingM',
+  'dab':           'Dab',
+  'dbc':           'Dbc',
+  'dca':           'Dca',
+  'sub-spacing':   'scSpacingM',
+  'strands':       'scStrands',
+  'dia-strands':   'strandDiaM',
+  'resistance':    'resSCPerKm',
+};
+const SELECT_CONTRACT = {
+  'system-type':  'symmetric',   // stored as raw select value
+  'bundle-count': 'scCount',
+  'line-model':   'model',
+};
 
 function _collectInputs(win) {
   const data = {};
   INPUT_FIELDS.forEach(([id, hasUnit]) => {
-    const el = win.querySelector('#' + id);
+    const key = INPUT_CONTRACT[id] ?? id;
+    const el  = win.querySelector('#' + id);
     if (!el) return;
-    data[id] = el.value;
+    data[key] = el.value;
     if (hasUnit) {
       const sel = win.querySelector(`select[data-unit-for="${id}"]`);
-      if (sel) data[id + '-unit'] = sel.value;
+      if (sel) data[key + '_unit'] = sel.value;
     }
   });
-  SELECT_FIELDS.forEach(id => {
+  Object.entries(SELECT_CONTRACT).forEach(([id, key]) => {
     const el = win.querySelector('#' + id);
-    if (el) data[id] = el.value;
+    if (el) data[key] = el.value;
   });
   return data;
 }
 
 function _applyInputs(win, data) {
   INPUT_FIELDS.forEach(([id, hasUnit]) => {
-    if (hasUnit) {
-      // Set unit first so unitInput conversion doesn't clobber the value
-      const unitKey = id + '-unit';
-      if (data[unitKey] != null) {
-        const sel = win.querySelector(`select[data-unit-for="${id}"]`);
-        if (sel) sel.value = data[unitKey];
-      }
+    const key = INPUT_CONTRACT[id] ?? id;
+    // Accept contract key first, fall back to legacy html-id key
+    const val     = data[key]     ?? data[id];
+    const unitVal = data[key + '_unit'] ?? data[id + '-unit'];
+    if (hasUnit && unitVal != null) {
+      const sel = win.querySelector(`select[data-unit-for="${id}"]`);
+      if (sel) sel.value = unitVal;
     }
-    if (data[id] != null) {
+    if (val != null) {
       const el = win.querySelector('#' + id);
-      if (el) el.value = data[id];
+      if (el) el.value = val;
     }
   });
-  SELECT_FIELDS.forEach(id => {
-    if (data[id] != null) {
+  Object.entries(SELECT_CONTRACT).forEach(([id, key]) => {
+    const val = data[key] ?? data[id];
+    if (val != null) {
       const el = win.querySelector('#' + id);
-      if (el) el.value = data[id];
+      if (el) el.value = val;
     }
   });
 }
@@ -146,16 +174,30 @@ function _saveInputs(win) {
   const pad     = n => String(n).padStart(2, '0');
   const stamp   = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}` +
                   `-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
-  const json    = JSON.stringify(data, null, 2);
-  const blob    = new Blob([json], { type: 'application/json' });
-  const url     = URL.createObjectURL(blob);
-  const a       = document.createElement('a');
-  a.href        = url;
-  a.download    = `tadee-inputs_${stamp}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
+  _triggerDownload(JSON.stringify(data, null, 2), `tadee-inputs_${stamp}.json`, 'application/json');
   const sb = win.querySelector('#sb-status');
   if (sb) sb.textContent = 'Saved';
+}
+
+function _exportOutput(win) {
+  if (!_lastResults) return;
+  const now   = new Date();
+  const pad   = n => String(n).padStart(2, '0');
+  const stamp = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}` +
+                `-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+  _triggerDownload(JSON.stringify(_lastResults, null, 2), `tadee-output_${stamp}.json`, 'application/json');
+  const sb = win.querySelector('#sb-status');
+  if (sb) sb.textContent = 'Exported';
+}
+
+function _triggerDownload(content, filename, mime) {
+  const blob = new Blob([content], { type: mime });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function _loadInputs(win) {
@@ -325,6 +367,32 @@ function _compute(win) {
   ];
 
   if (_gridApi) _gridApi.setData(rows);
+
+  // ── Store results for Export Output ───────────────────────────────────────
+  _lastResults = {
+    inputs: { ...params },
+    outputs: {
+      Lphkm:  lc.Lphkm,
+      Cphkm:  lc.Cphkm,
+      Xl:     xl.Xl,
+      Xc:     xl.Xc,
+      A:      { re: abcd.A.re ?? abcd.A, im: abcd.A.im ?? 0 },
+      B:      { re: abcd.B.re ?? abcd.B, im: abcd.B.im ?? 0 },
+      C:      { re: abcd.C.re ?? abcd.C, im: abcd.C.im ?? 0 },
+      D:      { re: abcd.D.re ?? abcd.D, im: abcd.D.im ?? 0 },
+      Vs_phase_kV:    { re: vs.phase.re       ?? vs.phase,       im: vs.phase.im       ?? 0 },
+      Vs_line_kV:     { re: vs.linetoline.re  ?? vs.linetoline,  im: vs.linetoline.im  ?? 0 },
+      Is_A:           { re: is.re ?? is, im: is.im ?? 0 },
+      Ic_A:           { re: ich.re ?? ich, im: ich.im ?? 0 },
+      VR:     vr,
+      loss:   pl.loss,
+      eta:    pl.eta,
+      Zc:     calc.Zc(),
+      SIL:    calc.SIL_MW(),
+    },
+  };
+  const btnExport = win.querySelector('#btn-export-output');
+  if (btnExport) btnExport.disabled = false;
 
   const elapsed = (performance.now() - t0).toFixed(1);
   if (sbTime)   sbTime.textContent   = `Time: ${elapsed} ms`;
