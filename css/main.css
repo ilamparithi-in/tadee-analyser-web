@@ -347,3 +347,33 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
   position: absolute; right: -2px; top: 0; bottom: 0; width: 5px;
   cursor: col-resize; z-index: 1;
 }
+
+/* ─── Code Viewer window ──────────────────────────────────────────────────── */
+#win-code-viewer { display: flex; flex-direction: column; }
+#win-code-viewer > .window-body {
+  flex: 1; min-height: 0; overflow: hidden;
+  background: #0c0c0c; /* cmd black */
+  padding: 0; margin: 0;
+  display: flex; flex-direction: column;
+  box-sizing: border-box;
+}
+#code-viewer-pre {
+  flex: 1; overflow: auto;
+  margin: 0; padding: 8px 10px;
+  background: transparent;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 12px; line-height: 1.5;
+  color: #cccccc;
+  tab-size: 2; -moz-tab-size: 2;
+  white-space: pre;
+  box-sizing: border-box;
+}
+/* Syntax highlight token classes */
+.cv-kw   { color: #569cd6; }   /* keywords: const, function, return … */
+.cv-fn   { color: #dcdcaa; }   /* function names */
+.cv-str  { color: #ce9178; }   /* strings */
+.cv-num  { color: #b5cea8; }   /* numbers */
+.cv-cmt  { color: #6a9955; }   /* comments */
+.cv-op   { color: #d4d4d4; }   /* operators / punctuation */
+.cv-cls  { color: #4ec9b0; }   /* class names */
+.cv-prop { color: #9cdcfe; }   /* this.xxx, identifiers after . */

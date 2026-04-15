@@ -301,9 +301,25 @@
     </div>
   </div>
 
+  <!-- Code Viewer window -->
+  <div id="win-code-viewer" class="window" data-start-hidden="true" style="width: 780px; height: 520px;">
+    <div class="title-bar">
+      <div class="title-bar-text">tadee.js — Source Code</div>
+      <div class="title-bar-controls">
+        <button aria-label="Minimize"></button>
+        <button aria-label="Maximize"></button>
+        <button aria-label="Close"></button>
+      </div>
+    </div>
+    <div class="window-body" id="code-viewer-body">
+      <pre id="code-viewer-pre"><code id="code-viewer-code">Loading…</code></pre>
+    </div>
+  </div>
+
   <script type="module" src="js/windowManager.js"></script>
   <script type="module" src="js/analyzer.js"></script>
   <script type="module" src="js/desktop.js"></script>
+  <script type="module" src="js/codeViewer.js"></script>
 </div><!-- /#viewport -->
 
 <div id="taskbar">
