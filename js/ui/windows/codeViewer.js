@@ -28,6 +28,28 @@ async function _open() {
   const win = document.getElementById('win-code-viewer');
   if (!win) return;
 
+  // Set a viewport-responsive size (same pattern as the analyzer window)
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const isMobile = vw < 700;
+  const w = Math.round(isMobile ? Math.min(vw, 460)  : Math.min(vw * 0.85, 780));
+  const h = Math.round(isMobile ? Math.min(vh, 480)  : Math.min(vh * 0.85, 520));
+  win.style.width  = w + 'px';
+  win.style.height = h + 'px';
+
+  // Center over the analyzer window if it exists, otherwise center in viewport
+  const analyzer = document.getElementById('win-notepad');
+  let cx, cy;
+  if (analyzer) {
+    cx = analyzer.offsetLeft + analyzer.offsetWidth  / 2;
+    cy = analyzer.offsetTop  + analyzer.offsetHeight / 2;
+  } else {
+    cx = vw / 2;
+    cy = vh / 2;
+  }
+  win.style.left = Math.round(Math.max(0, cx - w / 2)) + 'px';
+  win.style.top  = Math.round(Math.max(0, cy - h / 2)) + 'px';
+
   raiseWindow(win);
 
   if (!_loaded) {
