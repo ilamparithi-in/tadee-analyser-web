@@ -16,6 +16,7 @@ import { initResultsGrid }  from '../components/grid.js';
 import { initTooltips }     from '../components/tooltip.js';
 import { initUnitInputs, getBaseValue } from '../components/unitInput.js';
 import { lineCalculations } from '../../tadee.js';
+import { showError }        from '../components/errorDialog.js';
 
 export function initNotepadWindow(viewport) {
   const win = document.getElementById('win-notepad');
@@ -439,86 +440,81 @@ function _compute(win) {
   }
 
   // ── Run ────────────────────────────────────────────────────────────────────
-  let calc, err;
+  let calc;
   try {
     calc = new lineCalculations(params);
+
+    const lc   = calc.LandCperPhasePerKm();
+    const xl   = calc.XLandXC();
+    const abcd = calc.ABCDparams();
+    const vs   = calc.Vs_kV_line_phase();
+    const is   = calc.Is_A();
+    const ich  = calc.Icharging_A();
+    const vr   = calc.percent_VR();
+    const pl   = calc.power_loss_MW_and_efficiency();
+
+    // tadee.js property names:
+    //   LandCperPhasePerKm → { inductance, capacitance }
+    //   XLandXC            → { Reactance_L, Reactance_C }
+    //   power_loss…        → { power_loss_MW, efficiency }
+    const Lphkm  = lc.inductance;
+    const Cphkm  = lc.capacitance;
+    const Xl     = xl.Reactance_L;
+    const Xc     = xl.Reactance_C;
+    const loss   = pl.power_loss_MW;
+    const eta    = pl.efficiency;
+
+    const rows = [
+      ['Inductance per phase per km',  Lphkm.toExponential(4),           'H/km'],
+      ['Capacitance per phase per km', Cphkm.toExponential(4),           'F/km'],
+      ['Inductive reactance XL',       Xl.toFixed(4),                    'Ω'],
+      ['Capacitive reactance XC',      Xc.toFixed(4),                    'Ω'],
+      ['A',                            _fmtComplex(abcd.A),              ''],
+      ['B',                            _fmtComplex(abcd.B),              'Ω'],
+      ['C',                            _fmtComplex(abcd.C),              'S'],
+      ['D',                            _fmtComplex(abcd.D),              ''],
+      ['Sending end voltage (phase)',   _fmtComplex(vs.phase) + ' kV',   ''],
+      ['Sending end voltage (line)',    _fmtComplex(vs.linetoline) + ' kV', ''],
+      ['Sending end current Is',        _fmtComplex(is),                 'A'],
+      ['Charging current Ic',           _fmtComplex(ich),                'A'],
+      ['Voltage regulation',            vr.toFixed(4),                   '%'],
+      ['Power loss (3φ)',                loss.toFixed(4),                 'MW'],
+      ['Transmission efficiency',       (eta * 100).toFixed(2),          '%'],
+      ['Surge impedance Zc',            calc.Zc().toFixed(4),            'Ω'],
+      ['Surge impedance loading SIL',   calc.SIL_MW().toFixed(4),        'MW'],
+    ];
+
+    if (_gridApi) _gridApi.setData(rows);
+
+    // ── Store results for Export Output / PDF ─────────────────────────────────
+    _lastResults = {
+      inputs: { ...params },
+      outputs: {
+        Lphkm, Cphkm, Xl, Xc,
+        A: { re: abcd.A.re, im: abcd.A.im },
+        B: { re: abcd.B.re, im: abcd.B.im },
+        C: { re: abcd.C.re, im: abcd.C.im },
+        D: { re: abcd.D.re, im: abcd.D.im },
+        Vs_phase_kV: { re: vs.phase.re,      im: vs.phase.im      },
+        Vs_line_kV:  { re: vs.linetoline.re, im: vs.linetoline.im },
+        Is_A:  { re: is.re,  im: is.im  },
+        Ic_A:  { re: ich.re, im: ich.im },
+        VR: vr, loss, eta,
+        Zc: calc.Zc(), SIL: calc.SIL_MW(),
+      },
+    };
+    const btnExport = win.querySelector('#btn-export-output');
+    if (btnExport) btnExport.disabled = false;
+    const menuPdf = win.querySelector('#menu-save-as-pdf');
+    if (menuPdf) menuPdf.disabled = false;
+
+    const elapsed = (performance.now() - t0).toFixed(1);
+    if (sbTime)   sbTime.textContent   = `Time: ${elapsed} ms`;
+    if (sbStatus) sbStatus.textContent = 'Done';
   } catch (e) {
-    err = e;
-  }
-
-  if (err || !calc) {
     if (sbStatus) sbStatus.textContent = 'Compute error';
-    console.error(err);
-    return;
+    showError(e?.message ?? 'Unknown computation error.');
   }
-
-  const lc   = calc.LandCperPhasePerKm();
-  const xl   = calc.XLandXC();
-  const abcd = calc.ABCDparams();
-  const vs   = calc.Vs_kV_line_phase();
-  const is   = calc.Is_A();
-  const ich  = calc.Icharging_A();
-  const vr   = calc.percent_VR();
-  const pl   = calc.power_loss_MW_and_efficiency();
-
-  // tadee.js property names:
-  //   LandCperPhasePerKm → { inductance, capacitance }
-  //   XLandXC            → { Reactance_L, Reactance_C }
-  //   power_loss…        → { power_loss_MW, efficiency }
-  const Lphkm  = lc.inductance;
-  const Cphkm  = lc.capacitance;
-  const Xl     = xl.Reactance_L;
-  const Xc     = xl.Reactance_C;
-  const loss   = pl.power_loss_MW;
-  const eta    = pl.efficiency;
-
-  const rows = [
-    ['Inductance per phase per km',  Lphkm.toExponential(4),           'H/km'],
-    ['Capacitance per phase per km', Cphkm.toExponential(4),           'F/km'],
-    ['Inductive reactance XL',       Xl.toFixed(4),                    'Ω'],
-    ['Capacitive reactance XC',      Xc.toFixed(4),                    'Ω'],
-    ['A',                            _fmtComplex(abcd.A),              ''],
-    ['B',                            _fmtComplex(abcd.B),              'Ω'],
-    ['C',                            _fmtComplex(abcd.C),              'S'],
-    ['D',                            _fmtComplex(abcd.D),              ''],
-    ['Sending end voltage (phase)',   _fmtComplex(vs.phase) + ' kV',   ''],
-    ['Sending end voltage (line)',    _fmtComplex(vs.linetoline) + ' kV', ''],
-    ['Sending end current Is',        _fmtComplex(is),                 'A'],
-    ['Charging current Ic',           _fmtComplex(ich),                'A'],
-    ['Voltage regulation',            vr.toFixed(4),                   '%'],
-    ['Power loss (3φ)',                loss.toFixed(4),                 'MW'],
-    ['Transmission efficiency',       (eta * 100).toFixed(2),          '%'],
-    ['Surge impedance Zc',            calc.Zc().toFixed(4),            'Ω'],
-    ['Surge impedance loading SIL',   calc.SIL_MW().toFixed(4),        'MW'],
-  ];
-
-  if (_gridApi) _gridApi.setData(rows);
-
-  // ── Store results for Export Output / PDF ─────────────────────────────────
-  _lastResults = {
-    inputs: { ...params },
-    outputs: {
-      Lphkm, Cphkm, Xl, Xc,
-      A: { re: abcd.A.re, im: abcd.A.im },
-      B: { re: abcd.B.re, im: abcd.B.im },
-      C: { re: abcd.C.re, im: abcd.C.im },
-      D: { re: abcd.D.re, im: abcd.D.im },
-      Vs_phase_kV: { re: vs.phase.re,      im: vs.phase.im      },
-      Vs_line_kV:  { re: vs.linetoline.re, im: vs.linetoline.im },
-      Is_A:  { re: is.re,  im: is.im  },
-      Ic_A:  { re: ich.re, im: ich.im },
-      VR: vr, loss, eta,
-      Zc: calc.Zc(), SIL: calc.SIL_MW(),
-    },
-  };
-  const btnExport = win.querySelector('#btn-export-output');
-  if (btnExport) btnExport.disabled = false;
-  const menuPdf = win.querySelector('#menu-save-as-pdf');
-  if (menuPdf) menuPdf.disabled = false;
-
-  const elapsed = (performance.now() - t0).toFixed(1);
-  if (sbTime)   sbTime.textContent   = `Time: ${elapsed} ms`;
-  if (sbStatus) sbStatus.textContent = 'Done';
 }
 
 function _initThreeJs(container) {
