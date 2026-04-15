@@ -377,3 +377,69 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
 .cv-op   { color: #d4d4d4; }   /* operators / punctuation */
 .cv-cls  { color: #4ec9b0; }   /* class names */
 .cv-prop { color: #9cdcfe; }   /* this.xxx, identifiers after . */
+
+/* Code viewer: line-number gutter */
+#code-viewer-pre {
+  display: flex;
+  gap: 0;
+  padding: 0;          /* clear old padding — children own their own padding */
+  white-space: normal; /* reset; children set white-space: pre themselves */
+  align-items: flex-start; /* items take natural content height so overflow:auto scrolls correctly */
+}
+#code-viewer-linenos {
+  flex: 0 0 auto;
+  padding: 8px 6px 8px 10px;
+  text-align: right;
+  color: #6a9955;
+  user-select: none;
+  -webkit-user-select: none;
+  border-right: 1px solid #333;
+  margin-right: 10px;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 12px; line-height: 1.5;
+  white-space: pre;
+  background: transparent;
+}
+#code-viewer-code {
+  flex: 1;
+  padding: 8px 10px 8px 0;
+  white-space: pre;
+}
+
+/* ─── Calc Viewer window ──────────────────────────────────────────────────── */
+#win-calc-viewer { display: flex; flex-direction: column; }
+#win-calc-viewer > .window-body {
+  flex: 1; min-height: 0; overflow: hidden;
+  padding: 0; margin: 0;
+  display: flex; flex-direction: column;
+  box-sizing: border-box;
+}
+#calc-viewer-toolbar {
+  flex: 0 0 auto;
+  display: flex; align-items: center; gap: 4px;
+  padding: 3px 6px;
+  background: silver;
+  border-bottom: 1px solid grey;
+}
+#calc-viewer-toolbar button { min-width: unset; padding: 2px 10px; font-size: 11px; }
+#calc-viewer-scroll {
+  flex: 1; overflow: auto;
+  padding: 12px 16px;
+  background: #fff;
+  color: #000;
+  box-sizing: border-box;
+}
+#calc-viewer-content {
+  font-family: 'Times New Roman', serif;
+  font-size: 13px; line-height: 1.7;
+  max-width: 760px;
+  margin: 0 auto;
+}
+#calc-viewer-content h2 {
+  font-size: 16px; border-bottom: 1px solid #aaa;
+  padding-bottom: 4px; margin-top: 0;
+}
+#calc-viewer-content h3 { font-size: 14px; margin-top: 1.4em; }
+#calc-viewer-content h4 { font-size: 12px; margin-top: 1em; }
+#calc-viewer-content p  { margin: 0.5em 0; }
+#calc-viewer-content .katex-display { overflow-x: auto; margin: 0.8em 0; }

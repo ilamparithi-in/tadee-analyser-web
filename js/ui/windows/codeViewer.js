@@ -60,7 +60,20 @@ async function _open() {
       const resp = await fetch(SOURCE_PATH);
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const src = await resp.text();
-      if (codeEl) codeEl.innerHTML = _highlight(src);
+      const highlighted = _highlight(src);
+      if (codeEl) codeEl.innerHTML = highlighted;
+
+      // Build line-number gutter from the rendered text content so the count
+      // always matches the visual lines exactly (trailing newline excluded).
+      const pre = document.getElementById('code-viewer-pre');
+      if (pre && codeEl && !document.getElementById('code-viewer-linenos')) {
+        const lines = codeEl.textContent.replace(/\n$/, '').split('\n');
+        const gutter = document.createElement('span');
+        gutter.id = 'code-viewer-linenos';
+        gutter.setAttribute('aria-hidden', 'true');
+        gutter.textContent = lines.map((_, i) => i + 1).join('\n');
+        pre.insertBefore(gutter, codeEl);
+      }
     } catch (err) {
       const codeEl = document.getElementById('code-viewer-code');
       if (codeEl) {

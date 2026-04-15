@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>TADEE Group 7</title>
   <link rel="stylesheet" href="https://unpkg.com/98.css" />
+  <!-- KaTeX for LaTeX rendering in the Calculations viewer -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+          onload="window._katexReady=true; document.dispatchEvent(new Event('katex:ready'))"></script>
   <script type="importmap">
     { "imports": { "three": "https://unpkg.com/three@0.163.0/build/three.module.js" } }
   </script>
@@ -303,6 +308,26 @@
     </div>
   </div>
 
+  <!-- Calculations Viewer window -->
+  <div id="win-calc-viewer" class="window" data-start-hidden="true" style="width: 820px; height: 600px;">
+    <div class="title-bar">
+      <div class="title-bar-text">Transmission Line — Calculations</div>
+      <div class="title-bar-controls">
+        <button aria-label="Minimize"></button>
+        <button aria-label="Maximize"></button>
+        <button aria-label="Close"></button>
+      </div>
+    </div>
+    <div class="window-body" id="calc-viewer-body">
+      <div id="calc-viewer-toolbar">
+        <button id="calc-viewer-print">Print</button>
+      </div>
+      <div id="calc-viewer-scroll">
+        <div id="calc-viewer-content">Loading…</div>
+      </div>
+    </div>
+  </div>
+
   <!-- Code Viewer window -->
   <div id="win-code-viewer" class="window" data-start-hidden="true" style="width: 780px; height: 520px;">
     <div class="title-bar">
@@ -322,6 +347,7 @@
   <script type="module" src="js/analyzer.js"></script>
   <script type="module" src="js/desktop.js"></script>
   <script type="module" src="js/codeViewer.js"></script>
+  <script type="module" src="js/calcViewer.js"></script>
 </div><!-- /#viewport -->
 
 <div id="taskbar">

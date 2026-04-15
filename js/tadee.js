@@ -76,7 +76,7 @@ const lineParams = {
 }
 // length of line in km input
 
-class lineCalculations {
+export class lineCalculations {
     constructor(lineParams) {
         this.diaStrands = lineParams.diaStrands;
         this.noOfStrands = lineParams.noOfStrands;
