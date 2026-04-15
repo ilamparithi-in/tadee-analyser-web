@@ -289,6 +289,21 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
 .splitter-v:hover, .splitter-v:active,
 .splitter-h:hover, .splitter-h:active { background: #b0b0b0; }
 /* Status bar fields */
+/* Pin status bar to a fixed height so hover text changes never cause layout shifts */
+#win-notepad .status-bar {
+  height: 22px;
+  min-height: 22px;
+  max-height: 22px;
+  overflow: hidden;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+#win-notepad .status-bar .status-bar-field {
+  height: 18px;
+  line-height: 18px;
+  overflow: hidden;
+  white-space: nowrap;
+}
 #sb-hover { flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #sb-time  { flex: 0 0 90px; text-align: center; }
 #sb-status { flex: 0 0 100px; text-align: center; }

@@ -80,6 +80,9 @@ export function initNotepadWindow(viewport) {
   // Spacing toggle (symmetric vs unsymmetric)
   _initSpacingToggle(win);
 
+  // Status bar hover hints
+  _initStatusBarHints(win);
+
   // Three.js geometry viewer
   const container = win.querySelector('#canvas-container');
   if (container) _initThreeJs(container);
@@ -387,6 +390,77 @@ function _initSpacingToggle(win) {
   }
   sel?.addEventListener('change', _update);
   _update();
+}
+
+// ─── Status bar hover hints ──────────────────────────────────────────────────
+
+const SB_HINTS = {
+  // Toolbar
+  'btn-compute':        'Run the transmission line analysis with the current input parameters',
+  'btn-save-input':     'Save the current input parameters to a JSON file',
+  'btn-load-input':     'Load previously saved input parameters from a JSON file',
+  'btn-export-output':  'Export the computed results to a JSON file',
+  'btn-batch-mode':     'Run batch analysis over a swept range of parameter values',
+  'btn-view-code':      'View the transmission line calculation source code',
+  'btn-view-calc':      'View the mathematical formulae and derivations used in the calculations',
+  // File menu
+  'menu-save-as-pdf':   'Generate a formatted PDF report of the input parameters and computed results',
+  // View menu check items
+  'view-pane-input':    'Show or hide the input parameters pane',
+  'view-pane-canvas':   'Show or hide the conductor geometry canvas',
+  'view-pane-output':   'Show or hide the results output pane',
+  // Electrical inputs
+  'line-length':        'Total length of the three-phase transmission line',
+  'line-length-unit':   'Select the display unit for line length (value is converted to km for the calculation)',
+  'load-mw':            'Active power consumed by the three-phase receiving end load',
+  'load-mw-unit':       'Select the display unit for load power (value is converted to MW)',
+  'power-factor':       'Power factor of the receiving end load — enter a value between 0 and 1 (lagging assumed)',
+  'voltage':            'Nominal line-to-line RMS voltage at the receiving end busbar',
+  'voltage-unit':       'Select the display unit for voltage (value is converted to kV)',
+  'frequency':          'Power system frequency in Hz — typically 50 Hz or 60 Hz',
+  'system-type':        'Symmetrical: equal phase spacing D. Unsymmetrical (transposed): specify Dab, Dbc, Dca individually',
+  // Geometry inputs
+  'phase-spacing':      'Centre-to-centre distance between adjacent phase conductors (used when Symmetrical is selected)',
+  'phase-spacing-unit': 'Select the display unit for phase spacing',
+  'dab':                'Centre-to-centre distance between phase A and phase B conductors',
+  'dab-unit':           'Select the display unit for Dab',
+  'dbc':                'Centre-to-centre distance between phase B and phase C conductors',
+  'dbc-unit':           'Select the display unit for Dbc',
+  'dca':                'Centre-to-centre distance between phase C and phase A conductors',
+  'dca-unit':           'Select the display unit for Dca',
+  'bundle-count':       'Number of sub-conductors per bundle — 2, 3, or 4',
+  'sub-spacing':        'Centre-to-centre spacing between adjacent sub-conductors within the bundle',
+  'sub-spacing-unit':   'Select the display unit for sub-conductor spacing',
+  // Conductor inputs
+  'strands':            'Total number of strands in each sub-conductor — must satisfy 3n²−3n+1 (valid: 7, 19, 37, 61…)',
+  'dia-strands':        'Outer diameter of a single strand; all strands are assumed equal',
+  'dia-strands-unit':   'Select the display unit for strand diameter',
+  'resistance':         'AC resistance of a single sub-conductor per unit length at operating temperature',
+  'resistance-unit':    'Select the display unit for resistance per unit length',
+  // Model selection
+  'line-model':         'Short: lumped Z only.  Nominal \u03c0: adds shunt Y/2 at each end.  Distributed: exact hyperbolic ABCD model',
+};
+
+function _initStatusBarHints(win) {
+  const sbHover = win.querySelector('#sb-hover');
+  if (!sbHover) return;
+
+  win.addEventListener('mouseover', e => {
+    let node = e.target;
+    while (node && node !== win) {
+      if (node.id && node.id in SB_HINTS) {
+        sbHover.textContent = SB_HINTS[node.id];
+        return;
+      }
+      node = node.parentElement;
+    }
+  });
+
+  win.addEventListener('mouseout', e => {
+    if (!win.contains(e.relatedTarget)) {
+      sbHover.textContent = '';
+    }
+  });
 }
 
 function _normaliseModel(raw) {
