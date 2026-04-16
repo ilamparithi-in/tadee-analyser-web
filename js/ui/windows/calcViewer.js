@@ -21,8 +21,6 @@ export function initCalcViewerWindow(/* viewport */) {
 
 // ─── Open / lazy-load ────────────────────────────────────────────────────────
 
-let _loaded = false;
-
 async function _open() {
   const win = document.getElementById('win-calc-viewer');
   if (!win) return;
@@ -50,15 +48,12 @@ async function _open() {
 
   raiseWindow(win);
 
-  if (_loaded) return;
-  _loaded = true;
-
   const content = document.getElementById('calc-viewer-content');
   if (!content) return;
   content.innerHTML = 'Loading…';
 
   try {
-    const resp = await fetch(DOC_PATH);
+    const resp = await fetch(DOC_PATH, { cache: 'no-cache' });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const html = await resp.text();
     content.innerHTML = html;

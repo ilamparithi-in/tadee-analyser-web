@@ -33,12 +33,31 @@ export function initNotepadWindow(viewport) {
   // stopPropagation alone doesn't block native CSS overflow scroll — preventDefault
   // is required, so we also manually apply the step to preserve increment behaviour.
   win.querySelectorAll('input[type=number]').forEach(input => {
+    const minVal = () => input.min !== '' ? parseFloat(input.min) : -Infinity;
+
+    // Clamp on any typed input
+    input.addEventListener('input', () => {
+      const v = parseFloat(input.value);
+      if (!isNaN(v) && v < minVal()) input.value = minVal();
+    });
+
+    // Wheel — also clamp
     input.addEventListener('wheel', e => {
       if (document.activeElement !== input) return;
       e.preventDefault();
       const step = parseFloat(input.step) || 1;
       const cur  = parseFloat(input.value) || 0;
-      input.value = e.deltaY < 0 ? cur + step : cur - step;
+      let next = e.deltaY < 0 ? cur + step : cur - step;
+      next = Math.max(minVal(), next);
+      // For inputs with a fixed step (e.g. power-factor step=0.01), round to
+      // avoid floating-point drift (0.1 + 0.01 = 0.10999999…)
+      if (input.step && input.step !== 'any') {
+        const decimals = (input.step.includes('.') ? input.step.split('.')[1].length : 0);
+        next = parseFloat(next.toFixed(decimals));
+      }
+      // Respect max attribute
+      if (input.max !== '') next = Math.min(parseFloat(input.max), next);
+      input.value = next;
       input.dispatchEvent(new Event('input', { bubbles: true }));
     }, { passive: false });
   });
@@ -291,7 +310,7 @@ function _exportPdf(win) {
   <tr><td>8</td><td>Sending end current I<sub>s</sub></td><td class="val">${fcObj(o.Is_A)}</td><td>A</td></tr>
   <tr><td>9</td><td>Charging current I<sub>c</sub></td><td class="val">${fcObj(o.Ic_A)}</td><td>A</td></tr>
   <tr><td>10</td><td>Percentage voltage regulation</td><td class="val">${o.VR.toFixed(4)}</td><td>%</td></tr>
-  <tr><td>11</td><td>Power loss in the line (3φ)</td><td class="val">${o.loss.toFixed(4)}</td><td>MW</td></tr>
+  <tr><td>11</td><td>Power loss in the line (3φ)</td><td class="val">${o.lossMW.toFixed(4)}</td><td>MW</td></tr>
   <tr><td>12</td><td>Transmission efficiency</td><td class="val">${(o.eta * 100).toFixed(2)}</td><td>%</td></tr>
   <tr><td>13</td><td>Surge impedance Z<sub>c</sub> (lossless)</td><td class="val">${o.Zc.toFixed(4)}</td><td>Ω</td></tr>
   <tr><td>14</td><td>Surge impedance loading SIL (3φ, lossless)</td><td class="val">${o.SIL.toFixed(4)}</td><td>MW</td></tr>
@@ -487,17 +506,19 @@ function _compute(win) {
   const n = id => parseFloat(v(id)?.value ?? '');
   const bv = id => getBaseValue(id, win);
 
+  const isUnsym = v('system-type')?.value?.toLowerCase().includes('unsym');
+
   const params = {
     lineLengthKm:  bv('line-length'),
     recvLoadMW:    bv('load-mw'),
     recvPF:        n('power-factor'),
     nomSyskV:      bv('voltage'),
     frequency:     n('frequency'),
-    symmetric:     v('system-type')?.value?.toLowerCase().includes('unsym') ? 0 : 1,
-    Dab:           v('system-type')?.value?.toLowerCase().includes('unsym') ? bv('dab') : bv('phase-spacing'),
-    Dbc:           v('system-type')?.value?.toLowerCase().includes('unsym') ? bv('dbc') : bv('phase-spacing'),
-    Dca:           v('system-type')?.value?.toLowerCase().includes('unsym') ? bv('dca') : bv('phase-spacing'),
-    phaseSpacingM: bv('phase-spacing'),
+    symmetric:     isUnsym ? 0 : 1,
+    Dab:           isUnsym ? bv('dab')          : bv('phase-spacing'),
+    Dbc:           isUnsym ? bv('dbc')          : bv('phase-spacing'),
+    Dca:           isUnsym ? bv('dca')          : bv('phase-spacing'),
+    phaseSpacingM: isUnsym ? bv('phase-spacing') : bv('phase-spacing'), // hidden when unsym; not used by tadee.js in that case
     scCount:       parseInt(v('bundle-count')?.value ?? '1', 10),
     scSpacingM:    bv('sub-spacing'),
     scStrands:     n('strands'),
@@ -507,7 +528,11 @@ function _compute(win) {
   };
 
   // ── Validate ───────────────────────────────────────────────────────────────
-  const bad = Object.entries(params).filter(([, v]) => isNaN(v) && typeof v !== 'string');
+  // phaseSpacingM is hidden (and unused) when unsymmetric — skip it in that case
+  const bad = Object.entries(params).filter(([k, val]) => {
+    if (k === 'phaseSpacingM' && isUnsym) return false;
+    return isNaN(val) && typeof val !== 'string';
+  });
   if (bad.length) {
     if (sbStatus) sbStatus.textContent = 'Error: fill all fields';
     return;
@@ -535,7 +560,7 @@ function _compute(win) {
     const Cphkm  = lc.capacitance;
     const Xl     = xl.Reactance_L;
     const Xc     = xl.Reactance_C;
-    const loss   = pl.power_loss_MW;
+    const lossMW = pl.power_loss_MW;
     const eta    = pl.efficiency;
 
     const rows = [
@@ -552,7 +577,7 @@ function _compute(win) {
       ['Sending end current Is',        _fmtComplex(is),                 'A'],
       ['Charging current Ic',           _fmtComplex(ich),                'A'],
       ['Voltage regulation',            vr.toFixed(4),                   '%'],
-      ['Power loss (3φ)',                loss.toFixed(4),                 'MW'],
+      ['Power loss (3φ)',                lossMW.toFixed(4),               'MW'],
       ['Transmission efficiency',       (eta * 100).toFixed(2),          '%'],
       ['Surge impedance Zc',            calc.Zc().toFixed(4),            'Ω'],
       ['Surge impedance loading SIL',   calc.SIL_MW().toFixed(4),        'MW'],
@@ -573,7 +598,7 @@ function _compute(win) {
         Vs_line_kV:  { re: vs.linetoline.re, im: vs.linetoline.im },
         Is_A:  { re: is.re,  im: is.im  },
         Ic_A:  { re: ich.re, im: ich.im },
-        VR: vr, loss, eta,
+        VR: vr, lossMW, eta,
         Zc: calc.Zc(), SIL: calc.SIL_MW(),
       },
     };

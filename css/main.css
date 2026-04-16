@@ -206,6 +206,17 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
 }
 .dropdown-check[data-checked="true"]::before { content: '\2713'; }
 
+/* ─── Context menu (right-click) ──────────────────────────────────────────── */
+/* .ctx-clip = overflow:hidden clipping vessel (position:fixed, set by JS)    */
+/* .ctx-inner = Win98-styled card, slides from bottom-left → top-right        */
+@keyframes ctx-slide-in {
+  from { transform: translate(-100%, 100%); }
+  to   { transform: translate(0, 0); }
+}
+.ctx-inner.ctx-animate {
+  animation: ctx-slide-in 100ms steps(8, end) both;
+}
+
 /* Unit input row: number input + unit select side by side */
 .unit-input-row { display: flex; gap: 2px; align-items: center; }
 /* 98.css .field-row-stacked *+* adds margin-top to every adjacent sibling, including

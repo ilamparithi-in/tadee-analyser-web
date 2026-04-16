@@ -143,11 +143,11 @@
                   </div>
                 </div>
                 <div class="field-row-stacked" style="margin-top:4px;">
-                  <label for="power-factor">Power factor</label>
+                  <label for="power-factor">Power factor (lagging)</label>
                   <input id="power-factor" type="number" min="0" max="1" step="0.01" />
                 </div>
                 <div class="field-row-stacked" style="margin-top:4px;">
-                  <label for="voltage">Nominal voltage</label>
+                  <label for="voltage">Nominal system voltage</label>
                   <div class="unit-input-row">
                     <input id="voltage" type="number" min="0" step="any" />
                     <select id="voltage-unit" data-unit-for="voltage" data-base-unit="kV">
@@ -186,6 +186,7 @@
                 </div>
                 <!-- Unsymmetric spacing (Dab, Dbc, Dca) -->
                 <div id="spacing-unsym" style="display:none;">
+                  <p style="margin:0 0 4px; font-weight:bold;">Phase Spacing</p>
                   <div class="field-row-stacked">
                     <label for="dab">Dab</label>
                     <div class="unit-input-row">

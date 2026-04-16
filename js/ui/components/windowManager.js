@@ -11,6 +11,7 @@
  *
  * Exports: initWindowManager(viewport), addWindow(winEl, viewportEl)
  */
+import { showContextMenu } from './contextMenu.js';
 
 const MINIMIZE_ANIM_MS  = 150;
 const CASCADE_STEP      = 20;
@@ -184,6 +185,33 @@ function _register(win) {
           raiseWindow(win);
         }
       }
+    });
+    taskBtn.addEventListener('contextmenu', e => {
+      e.preventDefault();
+      const s = registry.get(win);
+      if (!s || s.isHidden) return;
+      showContextMenu(e.clientX, e.clientY, [
+        { label: '\u2013 Minimize', disabled: s.isMinimized || !s.minimizable,
+          action: () => { _focus(win); _minimize(win); } },
+        { label: '\u25a1 Maximize', disabled: s.isMaximized || !s.maximizable,
+          action: () => { _focus(win); _maximize(win); } },
+        { separator: true },
+        { label: '\u2715 Close', disabled: !s.closable, action: () => {
+          if (win.dataset.startHidden === 'true') {
+            if (s.isMinimized) { s.isMinimized = false; win.classList.remove('minimized'); }
+            if (s.isMaximized)  s.isMaximized = false;
+            s.isHidden = true;
+            win.style.visibility = 'hidden';
+            const tb = win.querySelector('.title-bar');
+            if (tb) tb.classList.add('inactive');
+            if (s.taskBtn) s.taskBtn.style.display = 'none';
+          } else {
+            if (s.taskBtn) s.taskBtn.remove();
+            registry.delete(win);
+            win.remove();
+          }
+        }},
+      ]);
     });
     _taskbarTasks.appendChild(taskBtn);
     state.taskBtn = taskBtn;
@@ -361,6 +389,12 @@ function _startDragFromMaximized(win, e, el) {
     firstMoveY = moveY;
   }
 
+  function _clampY(rawY) {
+    const tbH = titleBarH;
+    const vph = window.innerHeight;
+    return Math.max(-(tbH - 4), Math.min(vph - tbH, rawY));
+  }
+
   function onMove(e) {
     if (!restored) {
       restored = true;
@@ -373,7 +407,7 @@ function _startDragFromMaximized(win, e, el) {
       return;
     }
     outline.style.left = (startWinX + e.clientX - firstMoveX) + 'px';
-    outline.style.top  = (startWinY + e.clientY - firstMoveY) + 'px';
+    outline.style.top  = _clampY(startWinY + e.clientY - firstMoveY) + 'px';
   }
 
   function cancel(el) {
@@ -387,7 +421,7 @@ function _startDragFromMaximized(win, e, el) {
     cancel(e.currentTarget);
     if (!restored) return; // click without drag — leave window maximized, do nothing
     const newX = startWinX + e.clientX - firstMoveX;
-    const newY = startWinY + e.clientY - firstMoveY;
+    const newY = _clampY(startWinY + e.clientY - firstMoveY);
     win.style.left = newX + 'px';
     win.style.top  = newY + 'px';
     const st = registry.get(win);
@@ -415,13 +449,21 @@ function _startDrag(win, e, el) {
   outline.style.height = win.offsetHeight + 'px';
   // NOTE: display stays 'none' until first pointermove
 
+  // Clamp vertical position so title bar stays at least partially visible.
+  // Left/right are unconstrained (Win98 behaviour).
+  function _clampY(rawY) {
+    const tbH = win.querySelector('.title-bar')?.offsetHeight ?? 22;
+    const vph = window.innerHeight;
+    return Math.max(-(tbH - 4), Math.min(vph - tbH, rawY));
+  }
+
   function onMove(e) {
     if (!dragging) {
       dragging = true;
       outline.style.display = 'block';
     }
     outline.style.left = (startWinX + e.clientX - startMouseX) + 'px';
-    outline.style.top  = (startWinY + e.clientY - startMouseY) + 'px';
+    outline.style.top  = _clampY(startWinY + e.clientY - startMouseY) + 'px';
   }
 
   function cancel() {
@@ -434,7 +476,7 @@ function _startDrag(win, e, el) {
   function onUp(e) {
     cancel();
     const newX = startWinX + e.clientX - startMouseX;
-    const newY = startWinY + e.clientY - startMouseY;
+    const newY = _clampY(startWinY + e.clientY - startMouseY);
     win.style.left = newX + 'px';
     win.style.top  = newY + 'px';
     const s = registry.get(win);

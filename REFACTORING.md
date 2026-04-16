@@ -62,7 +62,7 @@ this.nomSyskV = lineParams.nomSyskV / Math.sqrt(3);
 
 | Old key | New key |
 |---|---|
-| `power_loss_MW` | `loss` |
+| `power_loss_MW` | `lossMW` |
 | `efficiency` | `eta` |
 
 ---

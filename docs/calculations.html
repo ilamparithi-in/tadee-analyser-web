@@ -180,8 +180,16 @@ sub-conductor per km.</p>
 <!-- ─── 10. Charging Current ───────────────────────────────────────────────── -->
 <h3>10. Charging Current</h3>
 
+<p>
+  Charging current is the current that flows when no load is connected, i.e.\ \(\mathbf{I}_R = 0\).
+  Under no-load, the sending-end voltage drives the line:
+</p>
 \[
-  \mathbf{I}_c = \mathbf{I}_S - \mathbf{I}_R \quad \text{A} \quad (\texttt{Ic})
+  \mathbf{V}_{R,\text{no-load}} = \frac{\mathbf{V}_S}{\mathbf{A}}
+\]
+<p>Substituting \(\mathbf{I}_R = 0\) into \(\mathbf{I}_S = \mathbf{C}\mathbf{V}_R + \mathbf{D}\mathbf{I}_R\):</p>
+\[
+  \mathbf{I}_c = \mathbf{C}\,\mathbf{V}_{R,\text{no-load}} \quad \text{A} \quad (\texttt{Ic})
 \]
 
 <!-- ─── 11. Surge Impedance & SIL ─────────────────────────────────────────── -->
