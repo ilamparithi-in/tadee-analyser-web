@@ -70,31 +70,31 @@ class complex {
     }
 }
 const lineParams = {
-    diaStrands: 0.01, noOfStrands: 7, spacingBwSubConds: 0.04, noOfSCperBundle: 4, symmetry: 'symmetrical', Dab: 20, Dbc: 24, Dca: 34,
-    D: 23, lineLength: 25, freq: 50, model: 'distributed', RperSCperKm: 0.1, Vnom_kV: 25,
-    loadMW: 140, pf: 0.8
+    strandDiaM: 0.01, scStrands: 7, scSpacingM: 0.04, scCount: 4, symmetric: 1, Dab: 20, Dbc: 24, Dca: 34,
+    phaseSpacingM: 23, lineLengthKm: 25, frequency: 50, model: 2, resSCPerKm: 0.1, nomSyskV: 25,
+    recvLoadMW: 140, recvPF: 0.8
 }
 // length of line in km input
 
 export class lineCalculations {
     constructor(lineParams) {
-        this.diaStrands = lineParams.diaStrands;
-        this.noOfStrands = lineParams.noOfStrands;
-        this.spacingBwSubConds = lineParams.spacingBwSubConds;
-        this.noOfSCperBundle = lineParams.noOfSCperBundle;
-        this.symmetry = lineParams.symmetry;
+        this.diaStrands = lineParams.strandDiaM;
+        this.noOfStrands = lineParams.scStrands;
+        this.spacingBwSubConds = lineParams.scSpacingM;
+        this.noOfSCperBundle = lineParams.scCount;
+        this.symmetry = lineParams.symmetric;   // 1 = symmetrical, 0 = unsymmetrical
         this.Dab = lineParams.Dab;
         this.Dbc = lineParams.Dbc;
         this.Dca = lineParams.Dca;
-        this.D = lineParams.D;
-        this.lineLength = lineParams.lineLength;
-        this.freq = lineParams.freq;
-        this.model = lineParams.model;
-        this.RperSCperKm = lineParams.RperSCperKm;
-        this.Vnom_kV = lineParams.Vnom_kV / Math.sqrt(3); //internal conversion to phase. use as is.
+        this.D = lineParams.phaseSpacingM;
+        this.lineLength = lineParams.lineLengthKm;
+        this.freq = lineParams.frequency;
+        this.model = lineParams.model;           // 0 = short, 1 = nominal pi, 2 = distributed
+        this.RperSCperKm = lineParams.resSCPerKm;
+        this.Vnom_kV = lineParams.nomSyskV / Math.sqrt(3); //internal conversion to phase. use as is.
 
-        this.loadMW = lineParams.loadMW;
-        this.pf = lineParams.pf;
+        this.loadMW = lineParams.recvLoadMW;
+        this.pf = lineParams.recvPF;
 
     }
     LandCperPhasePerKm() {
@@ -131,10 +131,10 @@ export class lineCalculations {
             throw new Error('invalid bundle size!');
         }
 
-        if (symmetry === 'symmetrical') {
+        if (symmetry === 1) {
             MGMD = D;
         }
-        else if (symmetry === 'unsymmetrical') {
+        else if (symmetry === 0) {
             MGMD = Math.cbrt(Dab * Dbc * Dca);
         }
         const c = (2 * Math.PI * 8.85e-12 / Math.log(MGMD / SGMDc)) * 1000;
@@ -171,13 +171,13 @@ export class lineCalculations {
         const R = this.RperCond();
         const Z = new complex(R, XL);
 
-        if (model === 'short') {
+        if (model === 0) {
             A = 1;
             B = Z;
             C = 0;
 
         }
-        else if (model === 'nominal pi') {
+        else if (model === 1) {
             const YZ = Z.multiply(Y);
             const YZdiv2 = YZ.divide(2);
             const YsquareZdiv2 = YZdiv2.multiply(Y);
@@ -187,7 +187,7 @@ export class lineCalculations {
             C = YsquareZdiv4.add(Y);
 
         }
-        else if (model === 'distributed') {
+        else if (model === 2) {
             const f = this.freq;
             const lineLength = this.lineLength;
             const r = this.RperCond() / lineLength / 1000; //add
