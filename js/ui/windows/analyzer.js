@@ -245,13 +245,27 @@ function _exportPdf(win) {
 <meta charset="UTF-8"/>
 <title>Transmission Line Analysis Report</title>
 <style>
+  @font-face {
+    font-family: 'Pixelated MS Sans Serif';
+    src: url('https://unpkg.com/98.css@0.1.21/dist/ms_sans_serif.woff2') format('woff2'),
+         url('https://unpkg.com/98.css@0.1.21/dist/ms_sans_serif.woff')  format('woff');
+    font-weight: normal;
+  }
+  @font-face {
+    font-family: 'Pixelated MS Sans Serif';
+    src: url('https://unpkg.com/98.css@0.1.21/dist/ms_sans_serif_bold.woff2') format('woff2'),
+         url('https://unpkg.com/98.css@0.1.21/dist/ms_sans_serif_bold.woff')  format('woff');
+    font-weight: bold;
+  }
   @page { size: A4; margin: 2cm; }
   * { box-sizing: border-box; }
   body {
-    font-family: 'Times New Roman', serif;
+    font-family: 'Pixelated MS Sans Serif', 'MS Sans Serif', sans-serif;
     font-size: 11pt;
     color: #000;
     margin: 0;
+    -webkit-font-smoothing: none;
+    font-smooth: never;
   }
   h1 { font-size: 16pt; text-align: center; margin-bottom: 2px; }
   .subtitle { text-align: center; font-size: 10pt; margin-bottom: 16px; }
@@ -285,7 +299,11 @@ function _exportPdf(win) {
   <tr><td>4</td><td>Nominal system voltage</td><td class="val">${i.nomSyskV} kV</td></tr>
   <tr><td>5</td><td>Power frequency</td><td class="val">${i.frequency} Hz</td></tr>
   <tr><td>6</td><td>Spacing type</td><td class="val">${symLabel}</td></tr>
-  <tr><td>7</td><td>Phase conductor spacing</td><td class="val">${i.phaseSpacingM} m</td></tr>
+  <tr><td>7</td><td>Phase conductor spacing</td><td class="val">${
+    (i.symmetric === 1 || i.symmetric === '1' || i.symmetric === 'symmetrical')
+      ? `${i.phaseSpacingM} m`
+      : `Dab = ${i.Dab} m, Dbc = ${i.Dbc} m, Dca = ${i.Dca} m`
+  }</td></tr>
   <tr><td>8</td><td>Sub-conductors per bundle</td><td class="val">${i.scCount}</td></tr>
   <tr><td>9</td><td>Sub-conductor spacing</td><td class="val">${i.scSpacingM} m</td></tr>
   <tr><td>10</td><td>Number of strands per sub-conductor</td><td class="val">${i.scStrands}</td></tr>
