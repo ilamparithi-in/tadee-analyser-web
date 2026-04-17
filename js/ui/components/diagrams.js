@@ -69,13 +69,66 @@ function _makePane(title, extraClass) {
   return [pane, body, controls];
 }
 
+const DPANE_ANIM_MS = 150;
+
 /** Wire up maximize / restore toggle on a pane. */
 function _initMaximizeBtn(btn, pane) {
   btn.dataset.tooltip = 'Maximize';
+  let _animating = false;
   btn.addEventListener('click', () => {
-    const maximized = pane.classList.toggle('dpane--maximized');
-    btn.dataset.active  = maximized ? 'true' : 'false';
-    btn.dataset.tooltip = maximized ? 'Restore' : 'Maximize';
+    if (_animating) return;
+    const grid = pane.closest('.diagram-grid');
+    if (!grid) {
+      const maximized = pane.classList.toggle('dpane--maximized');
+      btn.dataset.active  = maximized ? 'true' : 'false';
+      btn.dataset.tooltip = maximized ? 'Restore' : 'Maximize';
+      return;
+    }
+
+    const willMaximize = !pane.classList.contains('dpane--maximized');
+    const gridRect = grid.getBoundingClientRect();
+
+    // FROM rect — current state (relative to grid)
+    const fromRect = pane.getBoundingClientRect();
+    const fromX = fromRect.left - gridRect.left;
+    const fromY = fromRect.top  - gridRect.top;
+    const fromW = fromRect.width;
+    const fromH = fromRect.height;
+
+    // TO rect — toggle class, measure, revert (all sync; no repaint between)
+    pane.classList.toggle('dpane--maximized');
+    const toRect = pane.getBoundingClientRect();
+    const toX = toRect.left - gridRect.left;
+    const toY = toRect.top  - gridRect.top;
+    const toW = toRect.width;
+    const toH = toRect.height;
+    pane.classList.toggle('dpane--maximized'); // revert until animation ends
+
+    // Animate dotted outline from→to
+    _animating = true;
+    const outline = document.createElement('div');
+    outline.style.cssText =
+      `position:absolute;box-sizing:border-box;pointer-events:none;z-index:10;` +
+      `border:2px dotted #000;` +
+      `left:${fromX}px;top:${fromY}px;width:${fromW}px;height:${fromH}px;`;
+    grid.appendChild(outline);
+    outline.getBoundingClientRect(); // force layout flush
+    outline.style.transition =
+      `left ${DPANE_ANIM_MS}ms linear,top ${DPANE_ANIM_MS}ms linear,` +
+      `width ${DPANE_ANIM_MS}ms linear,height ${DPANE_ANIM_MS}ms linear`;
+    outline.style.left   = toX + 'px';
+    outline.style.top    = toY + 'px';
+    outline.style.width  = toW + 'px';
+    outline.style.height = toH + 'px';
+
+    setTimeout(() => {
+      outline.remove();
+      if (willMaximize) pane.classList.add('dpane--maximized');
+      else              pane.classList.remove('dpane--maximized');
+      btn.dataset.active  = willMaximize ? 'true' : 'false';
+      btn.dataset.tooltip = willMaximize ? 'Restore' : 'Maximize';
+      _animating = false;
+    }, DPANE_ANIM_MS + 20);
   });
 }
 

@@ -38,7 +38,7 @@ async function _open() {
   win.style.height = h + 'px';
 
   // Center over the analyzer window if it exists, otherwise center in viewport
-  const analyzer = document.getElementById('win-notepad');
+  const analyzer = document.getElementById('win-analyser');
   let cx, cy;
   if (analyzer) {
     cx = analyzer.offsetLeft + analyzer.offsetWidth  / 2;

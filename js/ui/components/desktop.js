@@ -14,7 +14,7 @@ const ICONS = [
     label: 'Transmission\nLine Analyzer',
     img:   'media/icons/display_properties-4.png',
     action() {
-      const win = document.getElementById('win-notepad');
+      const win = document.getElementById('win-analyser');
       if (!win) return;
       // Set a viewport-responsive initial size so that restoring from maximized
       // snaps to something sensible on both desktop and mobile.

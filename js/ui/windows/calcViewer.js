@@ -34,7 +34,7 @@ async function _open() {
   win.style.width  = w + 'px';
   win.style.height = h + 'px';
 
-  const analyzer = document.getElementById('win-notepad');
+  const analyzer = document.getElementById('win-analyser');
   let cx, cy;
   if (analyzer) {
     cx = analyzer.offsetLeft + analyzer.offsetWidth  / 2;

@@ -47,7 +47,7 @@ const PANEL_CONFIGS = [
 
 /**
  * Initialise pop-out buttons for all three panels in the analyzer window.
- * @param {HTMLElement} win      — #win-notepad element
+ * @param {HTMLElement} win      — #win-analyser element
  * @param {HTMLElement} viewport — #viewport element (WM host)
  */
 export function initPanelPopout(win, viewport) {

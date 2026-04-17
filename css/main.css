@@ -235,9 +235,9 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
   box-shadow: none !important;
 }
 
-/* Notepad window: flex column so window-body fills remaining height */
-#win-notepad { display: flex; flex-direction: column; }
-#win-notepad > .window-body { flex: 1; min-height: 0; overflow: hidden; }
+/* Analyser window: flex column so window-body fills remaining height */
+#win-analyser { display: flex; flex-direction: column; }
+#win-analyser > .window-body { flex: 1; min-height: 0; overflow: hidden; }
 .field-row { margin-bottom: 6px; }
 
 /* ─── Menu bar ────────────────────────────────────────────────────────────── */
@@ -557,7 +557,7 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
 .splitter-h:hover, .splitter-h:active { background: #b0b0b0; }
 /* Status bar fields */
 /* Pin status bar to a fixed height so hover text changes never cause layout shifts */
-#win-notepad .status-bar {
+#win-analyser .status-bar {
   height: 22px;
   min-height: 22px;
   max-height: 22px;
@@ -565,7 +565,7 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
   box-sizing: border-box;
   flex-shrink: 0;
 }
-#win-notepad .status-bar .status-bar-field {
+#win-analyser .status-bar .status-bar-field {
   height: 18px;
   line-height: 18px;
   overflow: hidden;
@@ -581,6 +581,7 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
 /* ─── Diagram grid (3 SVG panes) ──────────────────────────────────────────── */
 .diagram-grid {
   flex: 1;
+  position: relative;
   display: grid;
   grid-template-columns: 1fr 2fr;
   grid-template-rows: 1fr 1fr;

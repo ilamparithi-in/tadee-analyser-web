@@ -1,8 +1,8 @@
 /**
  * analyzer.js — Analyzer window content initialiser.
  *
- * The Notepad window element is statically authored in index.html with
- * id="win-notepad". This module initialises its interactive sub-components:
+ * The analyser window element is statically authored in index.html with
+ * id="win-analyser". This module initialises its interactive sub-components:
  * menu bar, splitter panels, results grid, and Three.js geometry viewer.
  *
  * @param {HTMLElement} viewport — the #viewport element (passed for consistency
@@ -20,8 +20,8 @@ import { initDiagramContainer, updateDiagrams } from '../components/diagrams.js'
 import { computeFromParams, fmtComplex, buildReportPage, PDF_STYLES } from '../../batch.js';
 import { initPanelPopout }  from '../components/panelPopout.js';
 
-export function initNotepadWindow(viewport) {
-  const win = document.getElementById('win-notepad');
+export function initAnalyserWindow(viewport) {
+  const win = document.getElementById('win-analyser');
   if (!win) return;
 
   // Tooltips
