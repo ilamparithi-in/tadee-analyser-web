@@ -71,10 +71,11 @@ function _makePane(title, extraClass) {
 
 /** Wire up maximize / restore toggle on a pane. */
 function _initMaximizeBtn(btn, pane) {
+  btn.dataset.tooltip = 'Maximize';
   btn.addEventListener('click', () => {
     const maximized = pane.classList.toggle('dpane--maximized');
-    btn.textContent = maximized ? '\u2750' : '\u25A1'; // ❐ vs □
-    btn.title       = maximized ? 'Restore' : 'Maximize';
+    btn.dataset.active  = maximized ? 'true' : 'false';
+    btn.dataset.tooltip = maximized ? 'Restore' : 'Maximize';
   });
 }
 
@@ -110,16 +111,15 @@ export function initDiagramContainer(container) {
   body1.appendChild(_svgBundle);
   // Zoom-reset button
   const btnZoomReset = document.createElement('button');
-  btnZoomReset.className   = 'dpane-btn';
-  btnZoomReset.textContent = '\u2316'; // ⌖
-  btnZoomReset.title       = 'Reset zoom';
+  btnZoomReset.className       = 'dpane-btn';
+  btnZoomReset.textContent     = '\u2316'; // ⌖
+  btnZoomReset.dataset.tooltip = 'Reset zoom';
   btnZoomReset.addEventListener('click', () => { _fitBundleView(); _redrawArrangement(); });
   controls1.appendChild(btnZoomReset);
   // Maximize button
   const btnMax1 = document.createElement('button');
   btnMax1.className   = 'dpane-btn';
   btnMax1.textContent = '\u25A1'; // □
-  btnMax1.title       = 'Maximize';
   _initMaximizeBtn(btnMax1, pane1);
   controls1.appendChild(btnMax1);
 
@@ -129,7 +129,6 @@ export function initDiagramContainer(container) {
   const btnMax2 = document.createElement('button');
   btnMax2.className   = 'dpane-btn';
   btnMax2.textContent = '\u25A1';
-  btnMax2.title       = 'Maximize';
   _initMaximizeBtn(btnMax2, pane2);
   controls2.appendChild(btnMax2);
 
@@ -139,7 +138,6 @@ export function initDiagramContainer(container) {
   const btnMax3 = document.createElement('button');
   btnMax3.className   = 'dpane-btn';
   btnMax3.textContent = '\u25A1';
-  btnMax3.title       = 'Maximize';
   _initMaximizeBtn(btnMax3, pane3);
   controls3.appendChild(btnMax3);
 

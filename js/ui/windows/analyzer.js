@@ -18,6 +18,7 @@ import { showError }        from '../components/errorDialog.js';
 import { showBalloon, hideBalloon }    from '../components/balloon.js';
 import { initDiagramContainer, updateDiagrams } from '../components/diagrams.js';
 import { computeFromParams, fmtComplex, buildReportPage, PDF_STYLES } from '../../batch.js';
+import { initPanelPopout }  from '../components/panelPopout.js';
 
 export function initNotepadWindow(viewport) {
   const win = document.getElementById('win-notepad');
@@ -73,6 +74,9 @@ export function initNotepadWindow(viewport) {
   // Splitter panel layout
   const layout = win.querySelector('#panel-layout');
   if (layout) initPanelLayout(layout);
+
+  // Panel pop-out buttons (must come after initPanelLayout)
+  initPanelPopout(win, viewport);
 
   // Results grid
   const grid = win.querySelector('#results-grid');
@@ -299,16 +303,23 @@ function _initViewMenu(win) {
     const showCanvas = document.getElementById('view-pane-canvas')?.dataset.checked === 'true';
     const showOutput = document.getElementById('view-pane-output')?.dataset.checked === 'true';
 
-    if (panelLeft) {
+    // Skip panels that are currently popped out into their own window —
+    // the pop-out module owns their visibility while they are detached.
+    if (panelLeft && panelLeft.dataset.poppedOut !== 'true') {
       panelLeft.style.display = showInput ? '' : 'none';
       // When canvas is hidden, let input pane grow to fill the full width
       panelLeft.style.flex = (showInput && !showCanvas) ? '1' : '';
     }
-    if (panelRight)  panelRight.style.display  = showCanvas ? '' : 'none';
-    if (splitterV)   splitterV.style.display   = (showInput && showCanvas) ? '' : 'none';
-    if (topRow)      topRow.style.display      = (showInput || showCanvas) ? '' : 'none';
-    if (panelBottom) panelBottom.style.display = showOutput ? '' : 'none';
-    if (splitterH)   splitterH.style.display   = ((showInput || showCanvas) && showOutput) ? '' : 'none';
+    if (panelRight  && panelRight.dataset.poppedOut  !== 'true') panelRight.style.display  = showCanvas ? '' : 'none';
+    if (panelBottom && panelBottom.dataset.poppedOut !== 'true') panelBottom.style.display = showOutput ? '' : 'none';
+
+    // Splitters depend on which panels are currently in the layout
+    const leftInLayout   = panelLeft   && panelLeft.dataset.poppedOut   !== 'true' && showInput;
+    const rightInLayout  = panelRight  && panelRight.dataset.poppedOut  !== 'true' && showCanvas;
+    const bottomInLayout = panelBottom && panelBottom.dataset.poppedOut !== 'true' && showOutput;
+    if (splitterV) splitterV.style.display = (leftInLayout && rightInLayout) ? '' : 'none';
+    if (topRow)    topRow.style.display    = (leftInLayout || rightInLayout) ? '' : 'none';
+    if (splitterH) splitterH.style.display = ((leftInLayout || rightInLayout) && bottomInLayout) ? '' : 'none';
   }
 
   ['view-pane-input', 'view-pane-canvas', 'view-pane-output'].forEach(id => {

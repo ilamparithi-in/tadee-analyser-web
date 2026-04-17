@@ -117,6 +117,10 @@
         <!-- Top row: left + right panels with vertical splitter -->
         <div id="panel-top-row">
           <div id="panel-left">
+            <div class="panel-header">
+              <span class="panel-header-title">Input</span>
+              <button class="panel-popout-btn dpane-btn" data-tooltip="Pop out to window">↗</button>
+            </div>
             <div class="panel-content">
             <form id="input-form" style="font-size:11px;">
 
@@ -286,6 +290,10 @@
           </div>
           <div class="splitter-v" id="splitter-v"></div>
           <div id="panel-right">
+            <div class="panel-header">
+              <span class="panel-header-title">Canvas</span>
+              <button class="panel-popout-btn dpane-btn" data-tooltip="Pop out to window">↗</button>
+            </div>
             <div id="canvas-container"></div>
           </div>
         </div>
@@ -295,7 +303,7 @@
 
         <!-- Bottom: Results panel -->
         <div id="panel-bottom">
-          <div id="results-heading">Results</div>
+          <div id="results-heading">Results<button class="panel-popout-btn dpane-btn" data-tooltip="Pop out to window">↗</button></div>
           <div id="results-scroll">
             <div id="results-grid"></div>
           </div>

@@ -519,10 +519,12 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
   flex-shrink: 0; padding: 1px 1px 1px 2px;
 }
 .dpane-btn {
-  width: 16px; height: 14px;
+  width: 13px; height: 13px !important;
   padding: 0; margin: 0;
-  font-size: 9px; line-height: 1;
-  min-width: unset;
+  min-width: unset; min-height: unset;
+  font-size: 9px;
+  display: inline-flex; align-items: center; justify-content: center;
+  overflow: hidden;
   cursor: pointer;
   background: silver;
   box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #fff,
@@ -530,8 +532,10 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
   border: none; outline: none;
   font-family: 'Pixelated MS Sans Serif', 'MS Sans Serif', sans-serif;
   -webkit-user-select: none; user-select: none;
+  box-sizing: border-box;
 }
-.dpane-btn:active {
+.dpane-btn:active,
+.dpane-btn[data-active="true"] {
   box-shadow: inset -1px -1px #fff, inset 1px 1px #0a0a0a,
               inset -2px -2px #dfdfdf, inset 2px 2px #808080;
 }
@@ -700,4 +704,48 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
   overflow: visible;   /* let #calc-viewer-scroll handle any horizontal overflow */
   margin: 0.8em 0;
   padding-bottom: 0.2em; /* prevent descenders being clipped by a scrollbar */
+}
+
+/* ─── Panel headers (pop-out buttons) ────────────────────────────────────── */
+/* Shared header bar on the left and canvas panels */
+.panel-header {
+  flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: space-between;
+  background: #d4d0c8;
+  padding: 0 2px 0 6px;
+  font-size: 11px; font-weight: bold;
+  border-bottom: 1px solid #808080;
+  height: 18px; min-height: 18px;
+  -webkit-user-select: none; user-select: none;
+}
+.panel-header-title {
+  flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+/* Results heading gets the same flex layout for the pop-out button */
+#results-heading {
+  display: flex; align-items: center; justify-content: space-between;
+}
+/* Pop-out button — uses the same dpane-btn size/style from the diagram panes */
+.panel-popout-btn { flex-shrink: 0; }
+
+/* Hide the in-panel header bar when the panel is living in its own window */
+.panel-popped-out .panel-header,
+.panel-popped-out #results-heading { display: none !important; }
+
+/* ─── Pop-out window chrome ───────────────────────────────────────────────── */
+/* The dynamically-created window that hosts a popped-out panel */
+.panel-popout-window {
+  display: flex; flex-direction: column;
+}
+.panel-popout-window > .panel-popout-body {
+  flex: 1; min-height: 0; overflow: hidden;
+  padding: 0 !important;      /* override 98.css .window-body padding */
+  display: flex; flex-direction: column;
+}
+/* When a panel is living inside a pop-out window it must fill the body */
+.panel-popped-out {
+  flex: 1 !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  box-shadow: none !important; /* window provides the border — skip inner bevel */
 }
