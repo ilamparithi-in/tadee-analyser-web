@@ -682,6 +682,7 @@ function _compute(win) {
   });
   if (bad.length) {
     if (sbStatus) sbStatus.textContent = 'Error: fill all fields';
+    showError('Please fill in all required fields before running the analysis.');
     return;
   }
 
