@@ -4,7 +4,7 @@ const ICONS = [
   {
     id:    'icon-my-computer',
     label: 'My Computer',
-    img:   null,
+    img:   'media/icons/computer_explorer_cool-0.png',
     action() {
       window.open('https://github.com/ilamparithi-in', '_blank', 'noopener,noreferrer');
     },
@@ -12,7 +12,7 @@ const ICONS = [
   {
     id:    'icon-tla',
     label: 'Transmission\nLine Analyzer',
-    img:   null,
+    img:   'media/icons/display_properties-4.png',
     action() {
       const win = document.getElementById('win-notepad');
       if (!win) return;
@@ -40,6 +40,33 @@ export function initDesktop(containerEl) {
     containerEl.appendChild(el);
   }
 
+  // Active Desktop project info — top-right corner
+  const info = document.createElement('div');
+  info.id = 'active-desktop-info';
+  info.innerHTML =
+    '<div class="adi-title">TADEE Group 7</div>' +
+    '<div class="adi-subtitle">Transmission Line Analyser</div>' +
+    '<hr class="adi-sep" />' +
+    '<ul class="adi-members">' +
+    '<li>Ilamparithi Murali <span class="adi-roll">107124046</span></li>' +
+    '<li>Priyadarsan ST <span class="adi-roll">107124084</span></li>' +
+    '<li>Srijith M S <span class="adi-roll">107124110</span></li>' +
+    '</ul>' +
+    '<button class="adn-close" aria-label="Close notice" title="Close">✕</button>';
+  containerEl.appendChild(info);
+  info.querySelector('.adn-close').addEventListener('click', () => info.remove());
+
+  // Active Desktop zoom notice — bottom-right corner
+  const notice = document.createElement('div');
+  notice.id = 'active-desktop-notice';
+  notice.innerHTML =
+    '<span class="adn-icon" aria-hidden="true">i</span>' +
+    '<span class="adn-text">For the best experience on a high&#8209;resolution display, ' +
+    'press <kbd>Ctrl</kbd>&nbsp;+&nbsp;<kbd>+</kbd> to increase zoom.</span>' +
+    '<button class="adn-close" aria-label="Close notice" title="Close">✕</button>';
+  containerEl.appendChild(notice);
+  notice.querySelector('.adn-close').addEventListener('click', () => notice.remove());
+
   // Deselect all icons when clicking blank desktop space
   containerEl.addEventListener('click', e => {
     if (e.target === containerEl) _deselectAll();
@@ -54,7 +81,7 @@ function _deselectAll() {
   document.querySelectorAll('.desktop-icon.selected').forEach(i => i.classList.remove('selected'));
 }
 
-function _createIcon({ id, label, action }) {
+function _createIcon({ id, label, img: imgSrc, action }) {
   const el = document.createElement('div');
   el.className = 'desktop-icon';
   el.id = id;
@@ -62,6 +89,7 @@ function _createIcon({ id, label, action }) {
   const img = document.createElement('div');
   img.className = 'desktop-icon-img';
   img.setAttribute('aria-hidden', 'true');
+  if (imgSrc) img.style.backgroundImage = `url('${imgSrc}')`;
 
   const lbl = document.createElement('span');
   lbl.className = 'desktop-icon-label';

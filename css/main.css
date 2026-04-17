@@ -52,13 +52,22 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
   -webkit-user-select: none;
   user-select: none;
 }
-.desktop-icon.selected .desktop-icon-img  { outline: 1px dotted #fff; background: navy; }
+.desktop-icon.selected .desktop-icon-img  { outline: 1px dotted #fff; }
+.desktop-icon.selected .desktop-icon-img::after {
+  content: '';
+  position: absolute; inset: 0;
+  background-image: repeating-conic-gradient(#000080 0% 25%, transparent 0% 50%);
+  background-size: 2px 2px;
+  pointer-events: none;
+}
 .desktop-icon.selected .desktop-icon-label { background: navy; color: #fff; outline: 1px dotted #fff; outline-offset: -1px; }
 .desktop-icon-img {
+  position: relative;
   width: 32px; height: 32px;
-  background: silver;
-  box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #fff,
-              inset -2px -2px grey,   inset 2px 2px #dfdfdf;
+  background-color: transparent;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
   flex-shrink: 0;
 }
 .desktop-icon-label {
@@ -71,6 +80,91 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
 .window.minimized { min-width: 0 !important; min-height: 0 !important; }
 /* Minimized title text ellipsis */
 .minimized .title-bar-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px; }
+
+/* ─── Active Desktop project info ─────────────────────────────────────────── */
+#active-desktop-info {
+  position: absolute;
+  top: 12px; right: 12px;
+  min-width: 190px;
+  background: #ffffc8;
+  border: 1px solid #808080;
+  box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #fff,
+              inset -2px -2px grey,     inset 2px 2px #dfdfdf;
+  padding: 6px 8px;
+  font-family: 'Pixelated MS Sans Serif', sans-serif;
+  font-size: 11px;
+  color: #000;
+  z-index: 5;
+  pointer-events: auto;
+}
+.adi-title {
+  font-weight: bold; font-size: 12px;
+  padding-right: 18px; /* room for close btn */
+}
+.adi-subtitle { font-size: 10px; color: #444; margin-top: 1px; }
+.adi-sep {
+  border: none;
+  border-top: 1px solid #808080;
+  margin: 5px 0;
+}
+.adi-members {
+  margin: 0; padding: 0;
+  list-style: none;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.adi-members li { display: flex; justify-content: space-between; gap: 8px; }
+.adi-roll { color: #444; }
+#active-desktop-info .adn-close {
+  position: absolute; top: 4px; right: 4px;
+}
+
+/* ─── Active Desktop zoom notice ──────────────────────────────────────────── */
+#active-desktop-notice {
+  position: absolute;
+  bottom: 12px; right: 12px;
+  display: flex; align-items: flex-start; gap: 8px;
+  max-width: 280px;
+  background: #ffffc8;
+  border: 1px solid #808080;
+  box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #fff,
+              inset -2px -2px grey,     inset 2px 2px #dfdfdf;
+  padding: 6px 8px;
+  font-family: 'Pixelated MS Sans Serif', sans-serif;
+  font-size: 11px;
+  color: #000;
+  z-index: 5;
+  pointer-events: auto;
+}
+.adn-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  width: 14px; height: 14px; margin-top: 1px;
+  clip-path: var(--bln-polygon);
+  background: #1a5fcc; color: #fff;
+  font-size: 10px; font-weight: bold; font-style: italic;
+  line-height: 1;
+}
+.adn-text { flex: 1; line-height: 1.4; }
+.adn-text kbd {
+  display: inline-block;
+  background: silver;
+  border: 1px solid #808080;
+  box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #fff;
+  padding: 0 3px;
+  font-family: inherit; font-size: 10px;
+  line-height: 14px;
+}
+.adn-close {
+  width: 14px; height: 14px !important;
+  padding: 0; margin: 0;
+  min-width: unset; min-height: unset;
+  font-size: 9px;
+  display: inline-flex; align-items: center; justify-content: center;
+  overflow: hidden;
+  cursor: pointer;
+  flex-shrink: 0; align-self: flex-start;
+  box-sizing: border-box;
+}
 
 /* ─── Taskbar ─────────────────────────────────────────────────────────────── */
 #taskbar {

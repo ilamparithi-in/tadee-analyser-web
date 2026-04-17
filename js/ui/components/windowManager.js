@@ -113,6 +113,18 @@ export function addWindow(winEl, viewportEl) {
   _register(winEl);
 }
 
+/**
+ * Programmatically remove a window registered with the WM.
+ * Cleans up the taskbar button and registry entry, then removes the element.
+ */
+export function removeWindow(winEl) {
+  const s = registry.get(winEl);
+  if (!s) { winEl.remove(); return; }
+  if (s.taskBtn) s.taskBtn.remove();
+  registry.delete(winEl);
+  winEl.remove();
+}
+
 // ─── Registration ────────────────────────────────────────────────────────────
 
 function _register(win) {

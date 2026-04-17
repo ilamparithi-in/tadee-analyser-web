@@ -18,7 +18,7 @@
  *    re-enabled when it is restored.
  */
 
-import { addWindow } from './windowManager.js';
+import { addWindow, removeWindow } from './windowManager.js';
 
 // Panel configuration — order matters for z-index cascade
 const PANEL_CONFIGS = [
@@ -72,6 +72,8 @@ function _initOne(win, viewport, cfg) {
 
 // ─── Pop out ─────────────────────────────────────────────────────────────────
 
+const POPOUT_ANIM_MS = 150;
+
 function _popOut(win, viewport, panel, cfg) {
   // Record parent + insert position for later restoration
   const parent      = panel.parentElement;
@@ -82,6 +84,14 @@ function _popOut(win, viewport, panel, cfg) {
   placeholder.className = 'panel-popout-placeholder';
   placeholder.style.cssText = 'display:none;flex:none;width:0;height:0;overflow:hidden;';
   parent.insertBefore(placeholder, panel);
+
+  // Capture the panel rect (viewport-relative) BEFORE the panel is moved
+  const panelRectFrom = panel.getBoundingClientRect();
+  const vpORect   = viewport.getBoundingClientRect();
+  const fromX = panelRectFrom.left - vpORect.left;
+  const fromY = panelRectFrom.top  - vpORect.top;
+  const fromW = panelRectFrom.width;
+  const fromH = panelRectFrom.height;
 
   // Mark the panel as popped out (lets _initViewMenu skip it in _apply)
   panel.dataset.poppedOut = 'true';
@@ -113,12 +123,11 @@ function _popOut(win, viewport, panel, cfg) {
   const body     = popWin.querySelector('.panel-popout-body');
   const closeBtn = popWin.querySelector('button[aria-label="Close"]');
 
-  // Add our restore listener BEFORE addWindow registers the WM listener.
-  // Both are on the same target element; at AT_TARGET phase they fire in
-  // registration order, so ours runs first and moves the panel back before
-  // the WM's handler removes popWin from the DOM.
-  closeBtn.addEventListener('click', () => {
-    _restore(win, panel, placeholder, parent, nextSibling, popWin, cfg);
+  // stopImmediatePropagation prevents the WM's close handler from firing;
+  // we handle WM cleanup ourselves after the collapse animation.
+  closeBtn.addEventListener('click', e => {
+    e.stopImmediatePropagation();
+    _restore(win, panel, placeholder, parent, nextSibling, popWin, cfg, viewport);
   });
 
   // Move panel into popup
@@ -128,11 +137,39 @@ function _popOut(win, viewport, panel, cfg) {
   // Register with the window manager (this also appends popWin to viewport)
   addWindow(popWin, viewport);
 
-  // Clamp position after WM sets cascade coords, then keep clamped on resize
+  // Clamp to settle the final target position
   _clampWindow(popWin, viewport);
-  const _vpResizeObs = new ResizeObserver(() => _clampWindow(popWin, viewport));
-  _vpResizeObs.observe(viewport);
-  popWin._popoutResizeObs = _vpResizeObs;
+  const toX = parseFloat(popWin.style.left)   || 0;
+  const toY = parseFloat(popWin.style.top)    || 0;
+  const toW = parseFloat(popWin.style.width)  || cfg.defaultW;
+  const toH = parseFloat(popWin.style.height) || cfg.defaultH;
+
+  // Animate: stamp button rect as start, hide content, flush, then transition to target
+  body.style.display = 'none';
+  popWin.classList.add('wm-transitioning');
+  popWin.style.left   = fromX + 'px';
+  popWin.style.top    = fromY + 'px';
+  popWin.style.width  = fromW + 'px';
+  popWin.style.height = fromH + 'px';
+  popWin.getBoundingClientRect(); // force layout flush
+
+  popWin.style.transition =
+    `left ${POPOUT_ANIM_MS}ms linear, top ${POPOUT_ANIM_MS}ms linear,` +
+    ` width ${POPOUT_ANIM_MS}ms linear, height ${POPOUT_ANIM_MS}ms linear`;
+  popWin.style.left   = toX + 'px';
+  popWin.style.top    = toY + 'px';
+  popWin.style.width  = toW + 'px';
+  popWin.style.height = toH + 'px';
+
+  setTimeout(() => {
+    popWin.style.transition = '';
+    popWin.classList.remove('wm-transitioning');
+    body.style.display = '';
+    // Connect resize observer only after animation so clamp doesn't fight it
+    const _vpResizeObs = new ResizeObserver(() => _clampWindow(popWin, viewport));
+    _vpResizeObs.observe(viewport);
+    popWin._popoutResizeObs = _vpResizeObs;
+  }, POPOUT_ANIM_MS + 20);
 
   // Update splitters now that the panel has left the main layout
   _updateLayout(win);
@@ -144,14 +181,17 @@ function _popOut(win, viewport, panel, cfg) {
 
 // ─── Restore ─────────────────────────────────────────────────────────────────
 
-function _restore(win, panel, placeholder, parent, nextSibling, popWin, cfg) {
-  // Move panel back to its original position (before the placeholder, which
-  // is at the original slot), then remove the placeholder
+function _restore(win, panel, placeholder, parent, nextSibling, popWin, cfg, viewport) {
+  // Disconnect resize observer immediately so clamp doesn't fight the animation
+  if (popWin._popoutResizeObs) {
+    popWin._popoutResizeObs.disconnect();
+    delete popWin._popoutResizeObs;
+  }
+
+  // Move panel back to its original slot immediately
   panel.classList.remove('panel-popped-out');
   delete panel.dataset.poppedOut;
 
-  // nextSibling is the element that was after the panel originally;
-  // placeholder is now at that position — insert before placeholder, then remove it
   if (placeholder.parentElement) {
     placeholder.parentElement.insertBefore(panel, placeholder);
     placeholder.remove();
@@ -161,22 +201,38 @@ function _restore(win, panel, placeholder, parent, nextSibling, popWin, cfg) {
     parent.appendChild(panel);
   }
 
-  // Let WM clean up popWin (its close handler runs next and calls win.remove())
-  // which is fine because panel is no longer a descendant of popWin.
-
-  // Disconnect the viewport resize observer
-  if (popWin._popoutResizeObs) {
-    popWin._popoutResizeObs.disconnect();
-    delete popWin._popoutResizeObs;
-  }
-
   // Re-enable View menu checkbox and re-apply layout
   const viewBtn = document.getElementById(cfg.viewBtnId);
-  if (viewBtn) {
-    viewBtn.disabled = false;
-  }
-
+  if (viewBtn) viewBtn.disabled = false;
   _updateLayout(win);
+
+  // Capture the panel rect now that it's back in the main layout
+  const panelRectTo = panel.getBoundingClientRect();
+  const vpRect    = viewport.getBoundingClientRect();
+  const toX = panelRectTo.left - vpRect.left;
+  const toY = panelRectTo.top  - vpRect.top;
+  const toW = panelRectTo.width;
+  const toH = panelRectTo.height;
+
+  // Animate popWin collapsing back toward the button
+  const body = popWin.querySelector('.panel-popout-body');
+  if (body) body.style.display = 'none'; // panel already gone; hide empty body
+  popWin.classList.add('wm-transitioning');
+  popWin.style.left   = popWin.offsetLeft   + 'px';
+  popWin.style.top    = popWin.offsetTop    + 'px';
+  popWin.style.width  = popWin.offsetWidth  + 'px';
+  popWin.style.height = popWin.offsetHeight + 'px';
+  popWin.getBoundingClientRect(); // force layout flush
+
+  popWin.style.transition =
+    `left ${POPOUT_ANIM_MS}ms linear, top ${POPOUT_ANIM_MS}ms linear,` +
+    ` width ${POPOUT_ANIM_MS}ms linear, height ${POPOUT_ANIM_MS}ms linear`;
+  popWin.style.left   = toX + 'px';
+  popWin.style.top    = toY + 'px';
+  popWin.style.width  = toW + 'px';
+  popWin.style.height = toH + 'px';
+
+  setTimeout(() => removeWindow(popWin), POPOUT_ANIM_MS + 20);
 }
 
 // ─── Viewport clamp ──────────────────────────────────────────────────────────

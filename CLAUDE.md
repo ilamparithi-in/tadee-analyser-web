@@ -52,6 +52,17 @@ This file is append-only. Every response must add relevant rules, decisions, and
 - No framework — vanilla HTML/CSS/JS only
 - Must be served over HTTP (not `file://`) due to ES modules
 
+## HiDPI Scaling
+
+- Auto-scale via inline sync script in `<head>` — runs before render to avoid flash
+- Two-branch formula based on `devicePixelRatio`:
+  - **DPR > 1** (browser/OS already scaling): zoom = 1, no change
+  - **DPR ≤ 1** (raw HiDPI, e.g. Linux 100% scaling): `zoom = max(1, screen.width / 1463)`
+    - Reference 1463px = 2560 ÷ 1.75 (the target display at the desired zoom)
+    - 2560px screen → 1.75×, 1920px screen → ~1.31×, ≤1463px → 1.0× (no scale)
+- DPR changes (moving between displays, browser zoom change) are watched via `matchMedia('(resolution: Xdppx)')` with `{ once: true }` + re-register pattern
+- Applied as `document.documentElement.style.zoom` (CSS `zoom` on `html`)
+
 ## Corrections Made
 
 - Removed duplicate scrollbar arrow buttons that 98.css exposes by default
