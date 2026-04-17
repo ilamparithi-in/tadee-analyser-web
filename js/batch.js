@@ -211,11 +211,11 @@ export const PDF_STYLES = `
          url('https://unpkg.com/98.css@0.1.21/dist/ms_sans_serif_bold.woff')  format('woff');
     font-weight: bold;
   }
-  @page { size: A4; margin: 2cm; }
+  @page { size: A4; margin: 0; }
   * { box-sizing: border-box; }
   body {
     font-family: 'Pixelated MS Sans Serif', 'MS Sans Serif', sans-serif;
-    font-size: 11pt; color: #000; margin: 0;
+    font-size: 11pt; color: #000; margin: 0; padding: 0.8cm 1.1cm;
     -webkit-font-smoothing: none; font-smooth: never;
   }
   .report-page { page-break-after: always; }

@@ -165,7 +165,23 @@ function _onScroll() {
   if (_rafId) return;
   _rafId = requestAnimationFrame(() => {
     _rafId = null;
-    if (_el && _el.style.visibility !== 'hidden') _reposition(_anchor);
+    if (!_anchor || !_el) return;
+    const r = _anchor.getBoundingClientRect();
+    // Hide if the anchor has been scrolled outside any of its scroll containers
+    const clipped = _scrollEls.some(sc => {
+      if (sc === window) {
+        return r.bottom <= 0 || r.top >= window.innerHeight ||
+               r.right  <= 0 || r.left >= window.innerWidth;
+      }
+      const cr = sc.getBoundingClientRect();
+      return r.bottom <= cr.top  || r.top  >= cr.bottom ||
+             r.right  <= cr.left || r.left >= cr.right;
+    });
+    if (clipped) {
+      hideBalloon();
+    } else if (_el.style.visibility !== 'hidden') {
+      _reposition(_anchor);
+    }
   });
 }
 

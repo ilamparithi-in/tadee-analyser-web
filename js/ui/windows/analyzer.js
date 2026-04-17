@@ -390,21 +390,37 @@ function _initModelHints(win) {
       ? (km < 80 ? 0 : km <= 250 ? 1 : 2)
       : (kv < 20 ? 0 : kv <= 150 ? 1 : 2);
     if (cat === _selectedCat()) { hideBalloon(); return; }
+    // Only show if the anchor field is currently visible in the viewport
+    const r = anchorEl.getBoundingClientRect();
+    if (r.bottom <= 0 || r.top >= window.innerHeight ||
+        r.right  <= 0 || r.left >= window.innerWidth) return;
     showBalloon(anchorEl, { ...hint, type: 'info' });
   }
 
   function onLen() { _check(lenInput, getBaseValue('line-length', win), null); }
   function onVlt() { _check(vltInput, null, getBaseValue('voltage', win)); }
 
+  // When the model selector itself changes, anchor the balloon to it
+  function onModelChange() {
+    const km = getBaseValue('line-length', win);
+    const kv = getBaseValue('voltage', win);
+    const hasKm = !isNaN(km) && km > 0;
+    const hasKv = !isNaN(kv) && kv > 0;
+    if (!hasKm && !hasKv) { hideBalloon(); return; }
+    const hint = hasKm ? _modelHintFor(km, null) : _modelHintFor(null, kv);
+    if (!hint) { hideBalloon(); return; }
+    const cat = hasKm
+      ? (km < 80 ? 0 : km <= 250 ? 1 : 2)
+      : (kv < 20 ? 0 : kv <= 150 ? 1 : 2);
+    if (cat === _selectedCat()) { hideBalloon(); return; }
+    showBalloon(modelSel, { ...hint, type: 'info' });
+  }
+
   lenInput?.addEventListener('input',   onLen);
   lenSelect?.addEventListener('change', onLen);
   vltInput?.addEventListener('input',   onVlt);
   vltSelect?.addEventListener('change', onVlt);
-  // Also re-evaluate when model selection changes
-  modelSel?.addEventListener('change', () => {
-    onLen();
-    onVlt();
-  });
+  modelSel?.addEventListener('change',  onModelChange);
 }
 
 // ─── Sub-conductor spacing warning ─────────────────────────────────────────
