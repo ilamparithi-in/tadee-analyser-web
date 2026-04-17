@@ -169,14 +169,23 @@ let _overlayScale  = null;
 // Pane 2 title text element (updated dynamically with the model name)
 let _circuitTitleEl = null;
 
+// Zoom/pan state for Pane 2 (circuit diagram — CSS transform on _circuitG)
+let _viewCircuit  = { zoom: 1, panX: 0, panY: 0 };
+let _circuitAC    = null;
+let _circuitG     = null;
+let _lastOutputs  = null;  // last outputs from updateDiagrams
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 export function initDiagramContainer(container) {
-  if (_bundleAC) { _bundleAC.abort(); _bundleAC = null; }
+  if (_bundleAC)  { _bundleAC.abort();  _bundleAC  = null; }
+  if (_circuitAC) { _circuitAC.abort(); _circuitAC = null; }
 
   container.innerHTML = '';
-  _bs.inputs = null;
-  _bundleG   = null;
+  _bs.inputs   = null;
+  _bundleG     = null;
+  _circuitG    = null;
+  _viewCircuit = { zoom: 1, panX: 0, panY: 0 };
 
   const grid = document.createElement('div');
   grid.className = 'diagram-grid';
@@ -236,12 +245,31 @@ export function initDiagramContainer(container) {
   const [pane2, body2, controls2] = _makePane('Circuit Diagram', 'dpane-circuit');
   _circuitTitleEl = pane2.querySelector('.dpane-title-text');
   _svgCircuit = _mkSvg();
-  body2.appendChild(_svgCircuit);
+  _svgCircuit.style.cursor = 'grab';
+
+  const svgWrap2 = document.createElement('div');
+  svgWrap2.className = 'dpane-svg-wrap';
+  svgWrap2.appendChild(_svgCircuit);
+  body2.appendChild(svgWrap2);
+
+  // Zoom-reset button for circuit pane
+  const btnZoomReset2 = document.createElement('button');
+  btnZoomReset2.className       = 'dpane-btn';
+  btnZoomReset2.textContent     = '\u2316';
+  btnZoomReset2.dataset.tooltip = 'Reset zoom';
+  btnZoomReset2.addEventListener('click', () => {
+    _viewCircuit = { zoom: 1, panX: 0, panY: 0 };
+    if (_circuitG) _circuitG.setAttribute('transform', '');
+  });
+  controls2.appendChild(btnZoomReset2);
+
   const btnMax2 = document.createElement('button');
   btnMax2.className   = 'dpane-btn';
   btnMax2.textContent = '\u25A1';
   _initMaximizeBtn(btnMax2, pane2);
   controls2.appendChild(btnMax2);
+
+  _initCircuitZoom(_svgCircuit);
 
   const [pane3, body3, controls3] = _makePane('Phasor Diagram', 'dpane-phasor');
   _svgPhasor = _mkSvg();
@@ -262,7 +290,8 @@ export function initDiagramContainer(container) {
 }
 
 export function updateDiagrams(inputs, outputs) {
-  _bs.inputs = inputs;
+  _bs.inputs  = inputs;
+  _lastOutputs = outputs;
   _fitBundleView();
   _redrawArrangement();
   _redrawCircuit(inputs, outputs);
@@ -382,6 +411,78 @@ function _applyViewTransform() {
   if (!_bundleG) return;
   _bundleG.setAttribute('transform',
     `translate(${_view.panX},${_view.panY}) scale(${_view.zoom})`);
+}
+
+// ─── Zoom / pan for Pane 2 (circuit diagram) ─────────────────────────────────
+
+function _initCircuitZoom(svg) {
+  _circuitAC = new AbortController();
+  const sig = { signal: _circuitAC.signal };
+
+  svg.addEventListener('wheel', e => {
+    e.preventDefault();
+    const rect   = svg.getBoundingClientRect();
+    const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+    const px = e.clientX - rect.left, py = e.clientY - rect.top;
+    _viewCircuit.panX = px + (_viewCircuit.panX - px) * factor;
+    _viewCircuit.panY = py + (_viewCircuit.panY - py) * factor;
+    _viewCircuit.zoom *= factor;
+    _applyCircuitTransform();
+  }, { passive: false, ...sig });
+
+  let drag = null;
+  svg.addEventListener('mousedown', e => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    drag = { x: e.clientX, y: e.clientY };
+    svg.style.cursor = 'grabbing';
+  }, sig);
+  window.addEventListener('mousemove', e => {
+    if (!drag) return;
+    _viewCircuit.panX += e.clientX - drag.x;
+    _viewCircuit.panY += e.clientY - drag.y;
+    drag = { x: e.clientX, y: e.clientY };
+    _applyCircuitTransform();
+  }, sig);
+  window.addEventListener('mouseup', () => {
+    drag = null;
+    if (svg) svg.style.cursor = 'grab';
+  }, sig);
+
+  let pinch = null;
+  svg.addEventListener('touchstart', e => {
+    if (e.touches.length === 2) {
+      const rect = svg.getBoundingClientRect();
+      pinch = {
+        dist: _touchDist(e.touches),
+        mx: (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left,
+        my: (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top,
+      };
+    }
+  }, { passive: true, ...sig });
+  svg.addEventListener('touchmove', e => {
+    if (e.touches.length === 2 && pinch) {
+      e.preventDefault();
+      const d = _touchDist(e.touches);
+      const f = d / pinch.dist;
+      _viewCircuit.panX = pinch.mx + (_viewCircuit.panX - pinch.mx) * f;
+      _viewCircuit.panY = pinch.my + (_viewCircuit.panY - pinch.my) * f;
+      _viewCircuit.zoom *= f;
+      pinch.dist = d;
+      _applyCircuitTransform();
+    }
+  }, { passive: false, ...sig });
+  svg.addEventListener('touchend', () => { pinch = null; }, { passive: true, ...sig });
+
+  new ResizeObserver(() => {
+    if (_bs.inputs && _lastOutputs) _redrawCircuit(_bs.inputs, _lastOutputs);
+  }).observe(svg);
+}
+
+function _applyCircuitTransform() {
+  if (!_circuitG) return;
+  _circuitG.setAttribute('transform',
+    `translate(${_viewCircuit.panX},${_viewCircuit.panY}) scale(${_viewCircuit.zoom})`);
 }
 
 /**
@@ -790,89 +891,339 @@ function _drawSpacingDim(svg, ax, ay, bx, by, dispR, label) {
 
 // ─── Circuit diagram (Pane 2) ─────────────────────────────────────────────────
 
-/**
- * Format a complex number as magnitude∠angle°.
- * mag in the given unit string (e.g. 'kV', 'A', 'Ω').
- */
 function _fmtPhasor(re, im, unit, decimals = 2) {
   const mag = Math.sqrt(re * re + im * im);
   const ang = Math.atan2(im, re) * 180 / Math.PI;
-  const angStr = (ang >= 0 ? '+' : '') + ang.toFixed(1) + '\u00b0';
-  return `${mag.toFixed(decimals)}\u2220${angStr}\u00a0${unit}`;
+  return `${mag.toFixed(decimals)}\u2220${ang >= 0 ? '+' : ''}${ang.toFixed(1)}\u00b0\u00a0${unit}`;
 }
+
+function _fmtRect(re, im, unit, dec) {
+  const sign = im >= 0 ? '\u00a0+\u00a0j' : '\u00a0\u2212\u00a0j';
+  return `${re.toFixed(dec)}${sign}${Math.abs(im).toFixed(dec)}\u00a0${unit}`;
+}
+
+// ─── Wire and junction primitives ────────────────────────────────────────────
+
+function _wireSeg(parent, x1, y1, x2, y2) {
+  parent.appendChild(_el('line', { x1, y1, x2, y2, stroke: '#333', 'stroke-width': '1.5' }));
+}
+
+function _junctionDot(parent, x, y) {
+  parent.appendChild(_el('circle', { cx: x, cy: y, r: 3, fill: '#333' }));
+}
+
+// ─── US schematic symbols ─────────────────────────────────────────────────────
+
+/** US zigzag resistor (horizontal). x1/x2 = outer wire attachment points. */
+function _drawResistor(parent, x1, y, x2) {
+  const W = 32, H = 7, n = 6;
+  const cx = (x1 + x2) / 2, bL = cx - W / 2, bR = cx + W / 2;
+  _wireSeg(parent, x1, y, bL, y);
+  _wireSeg(parent, bR, y, x2, y);
+  const pts = [[bL, y]];
+  for (let i = 0; i < n; i++) pts.push([bL + (i + 0.5) * W / n, y + (i % 2 === 0 ? -H : H)]);
+  pts.push([bR, y]);
+  parent.appendChild(_el('polyline', {
+    points: pts.map(p => p.join(',')).join(' '),
+    fill: 'none', stroke: '#333', 'stroke-width': '1.5', 'stroke-linejoin': 'round',
+  }));
+}
+
+/** US inductor bumps (horizontal, 4 arcs above wire). x1/x2 = outer wire attachment points. */
+function _drawInductor(parent, x1, y, x2) {
+  const nBumps = 4, W = 32;
+  const cx = (x1 + x2) / 2, bL = cx - W / 2;
+  const r   = W / (2 * nBumps);
+  _wireSeg(parent, x1, y, bL, y);
+  _wireSeg(parent, bL + W, y, x2, y);
+  let d = `M ${bL},${y}`;
+  for (let i = 0; i < nBumps; i++) {
+    // sweep=1 (CW in SVG y-down) → arc goes above the wire line
+    d += ` A ${r},${r} 0 0,1 ${bL + (i + 1) * r * 2},${y}`;
+  }
+  parent.appendChild(_el('path', { d, fill: 'none', stroke: '#333', 'stroke-width': '1.5' }));
+}
+
+/**
+ * Series RL: if hasR draws zigzag (left half) + bumps (right half),
+ * otherwise just bumps spanning the full range.
+ */
+function _drawSeriesRL(parent, x1, y, x2, hasR) {
+  if (hasR) {
+    const mid = (x1 + x2) / 2;
+    _drawResistor(parent, x1, y, mid);
+    _drawInductor(parent, mid, y, x2);
+  } else {
+    _drawInductor(parent, x1, y, x2);
+  }
+}
+
+/**
+ * Vertical shunt capacitor.  topY = junction on main wire, gndY = ground symbol top.
+ */
+function _drawShuntCap(parent, x, topY, gndY) {
+  const plateW = 14, gap = 5, midY = (topY + gndY) / 2;
+  _wireSeg(parent, x, topY, x, midY - gap / 2);
+  _wireSeg(parent, x, midY + gap / 2, x, gndY);
+  for (const dy of [-gap / 2, gap / 2]) {
+    parent.appendChild(_el('line', {
+      x1: x - plateW / 2, y1: midY + dy, x2: x + plateW / 2, y2: midY + dy,
+      stroke: '#333', 'stroke-width': '2.5',
+    }));
+  }
+}
+
+function _drawGround(parent, x, y) {
+  [14, 9, 4].forEach((w, i) => {
+    parent.appendChild(_el('line', {
+      x1: x - w / 2, y1: y + i * 4.5, x2: x + w / 2, y2: y + i * 4.5,
+      stroke: '#333', 'stroke-width': '1.5',
+    }));
+  });
+}
+
+/** Small open-circle node (terminal junction). */
+function _termNode(parent, x, y) {
+  parent.appendChild(_el('circle', { cx: x, cy: y, r: 3,
+    fill: 'white', stroke: '#333', 'stroke-width': '1.5' }));
+}
+
+/**
+ * Upward voltage arrow from (x, botY) to (x, topY).
+ * side: 'left'  → label to the left  (text-anchor end)
+ *       'right' → label to the right (text-anchor start)
+ */
+function _drawVoltageArrow(parent, x, topY, botY, label, side) {
+  const AL = 6, AW = 3;
+  const midY = (topY + botY) / 2;
+  parent.appendChild(_el('line', { x1: x, y1: botY, x2: x, y2: topY + AL,
+    stroke: '#555', 'stroke-width': '1.5' }));
+  _arrowhead(parent, x, topY, 0, -1, AL, AW);
+  const lx = side === 'left' ? x - 8 : x + 8;
+  _circuitLabel(parent, lx, midY, label, side === 'left' ? 'end' : 'start');
+}
+
+// ─── ABCD helpers ─────────────────────────────────────────────────────────────
+
+/** Compute IR (kA) via ABCD back-calc: IR = (VS − A·VR) / B */
+function _computeIR(inputs, outputs) {
+  const Vr    = inputs.nomSyskV / Math.sqrt(3);
+  const numRe = outputs.Vs_phase_kV.re - outputs.A.re * Vr;
+  const numIm = outputs.Vs_phase_kV.im - outputs.A.im * Vr;
+  const denom = outputs.B.re ** 2 + outputs.B.im ** 2;
+  return {
+    re: denom > 0 ? (numRe * outputs.B.re + numIm * outputs.B.im) / denom : 0,
+    im: denom > 0 ? (numIm * outputs.B.re - numRe * outputs.B.im) / denom : 0,
+  };
+}
+
+/** IS in kA.  outputs.Is_A stores values in Amperes despite the name. */
+function _IS_kA(outputs) {
+  return { re: outputs.Is_A.re / 1e3, im: outputs.Is_A.im / 1e3 };
+}
+
+// ─── Per-model circuit renderers ──────────────────────────────────────────────
 
 function _redrawCircuit(inputs, outputs) {
   const svg = _svgCircuit;
   if (!svg) return;
   svg.innerHTML = '';
+  _circuitG = _el('g');
+  svg.appendChild(_circuitG);
+  _applyCircuitTransform();
 
-  const sw = svg.clientWidth  || 400;
+  const sw = svg.clientWidth  || 500;
   const sh = svg.clientHeight || 300;
 
-  // ── Layout constants ──────────────────────────────────────────────────────
-  const PAD   = 24;          // margin from SVG edges
-  const BUS_W = 6;           // bus bar half-width
-  const BUS_H = sh * 0.42;   // bus bar half-height
-  const CY    = sh * 0.46;   // vertical centre of the circuit (slightly above mid)
-
-  const leftX  = PAD + BUS_W;
-  const rightX = sw - PAD - BUS_W;
-
-  // ── Model name in title bar ───────────────────────────────────────────────
   const MODEL_NAMES = ['Short Line', 'Nominal \u03c0', 'Distributed'];
-  const modelName   = MODEL_NAMES[inputs.model] ?? 'Unknown';
-  if (_circuitTitleEl) _circuitTitleEl.textContent = `Circuit Diagram \u2014 ${modelName}`;
+  if (_circuitTitleEl)
+    _circuitTitleEl.textContent =
+      `Circuit Diagram \u2014 ${MODEL_NAMES[inputs.model] ?? 'Unknown'}`;
 
-  // ── Bus bars ──────────────────────────────────────────────────────────────
-  // Left bus (VS)
-  svg.appendChild(_el('rect', {
-    x: leftX - BUS_W, y: CY - BUS_H,
-    width: BUS_W * 2, height: BUS_H * 2,
-    fill: '#555',
-  }));
-  // Right bus (VR)
-  svg.appendChild(_el('rect', {
-    x: rightX - BUS_W, y: CY - BUS_H,
-    width: BUS_W * 2, height: BUS_H * 2,
-    fill: '#555',
-  }));
-
-  // ── Connecting wires to the series branch ─────────────────────────────────
-  // Will be completed in Parts 2 & 3; for now draw a plain wire from bus to bus
-  const wireY = CY;
-  svg.appendChild(_el('line', {
-    x1: leftX + BUS_W, y1: wireY,
-    x2: rightX - BUS_W, y2: wireY,
-    stroke: '#333', 'stroke-width': '2',
-  }));
-
-  // ── Voltage labels ────────────────────────────────────────────────────────
-  const labelOffset = BUS_H + 14;
-
-  // VS label (left bus, below)
-  const Vs_re = outputs.Vs_phase_kV.re;
-  const Vs_im = outputs.Vs_phase_kV.im;
-  const vsLabel = 'VS = ' + _fmtPhasor(Vs_re, Vs_im, 'kV');
-  _circuitLabel(svg, leftX, CY + labelOffset, vsLabel, 'middle');
-
-  // VR label (right bus, below) — receiving end at angle 0°
-  const Vr_kV = inputs.nomSyskV / Math.sqrt(3);
-  const vrLabel = 'VR = ' + Vr_kV.toFixed(2) + '\u2220+0.0\u00b0\u00a0kV';
-  _circuitLabel(svg, rightX, CY + labelOffset, vrLabel, 'middle');
+  if      (inputs.model === 0) _drawShortCircuit(_circuitG, sw, sh, inputs, outputs);
+  else if (inputs.model === 1) _drawNominalPiCircuit(_circuitG, sw, sh, inputs, outputs);
+  else                         _drawDistributedCircuit(_circuitG, sw, sh, inputs, outputs);
 }
 
-/** Render a text label with white knockout stroke (readable on any background). */
-function _circuitLabel(svg, x, y, text, anchor = 'middle') {
+function _drawShortCircuit(g, sw, sh, inputs, outputs) {
+  const PAD = 24, TERM_R = 4;
+  const wireY  = sh * 0.45;
+  const leftX  = PAD + TERM_R;
+  const rightX = sw - PAD - TERM_R;
+  const hasR   = Math.abs(outputs.B.re) > 0.001;
+
+  const Vr_kV = inputs.nomSyskV / Math.sqrt(3);
+  _drawTerminal(g, leftX,  wireY, '+',
+    'VS\u00a0=\u00a0' + _fmtPhasor(outputs.Vs_phase_kV.re, outputs.Vs_phase_kV.im, 'kV'));
+  _drawTerminal(g, rightX, wireY, '+',
+    'VR\u00a0=\u00a0' + Vr_kV.toFixed(2) + '\u2220+0.0\u00b0\u00a0kV');
+
+  const SERIES_W = Math.min(140, (rightX - leftX - 30) * 0.55);
+  const midX = (leftX + rightX) / 2;
+  const serL = midX - SERIES_W / 2;
+  const serR = midX + SERIES_W / 2;
+
+  _wireSeg(g, leftX + TERM_R, wireY, serL, wireY);
+  _drawSeriesRL(g, serL, wireY, serR, hasR);
+  _wireSeg(g, serR, wireY, rightX - TERM_R, wireY);
+  _circuitLabel(g, midX, wireY + 20,
+    'Z\u00a0=\u00a0' + _fmtRect(outputs.B.re, outputs.B.im, '\u03a9', 2), 'middle');
+
+  const IS = _IS_kA(outputs);
+  const IR = _computeIR(inputs, outputs);
+  const arrowY = wireY - 20;
+  _drawCurrentArrow(g, leftX + TERM_R + 3, serL - 3, arrowY,
+    'IS\u00a0=\u00a0' + _fmtPhasor(IS.re, IS.im, 'kA', 3));
+  _drawCurrentArrow(g, serR + 3, rightX - TERM_R - 3, arrowY,
+    'IR\u00a0=\u00a0' + _fmtPhasor(IR.re, IR.im, 'kA', 3));
+}
+
+function _drawNominalPiCircuit(g, sw, sh, inputs, outputs) {
+  const PAD = 24, TERM_R = 4;
+  const wireY    = sh * 0.40;
+  const shuntBot = wireY + 52;
+  const leftX    = PAD + TERM_R;
+  const rightX   = sw - PAD - TERM_R;
+  const hasR     = Math.abs(outputs.B.re) > 0.001;
+
+  const juncL = leftX  + 28;
+  const juncR = rightX - 28;
+
+  const Vr_kV = inputs.nomSyskV / Math.sqrt(3);
+  _drawTerminal(g, leftX,  wireY, '+',
+    'VS\u00a0=\u00a0' + _fmtPhasor(outputs.Vs_phase_kV.re, outputs.Vs_phase_kV.im, 'kV'));
+  _drawTerminal(g, rightX, wireY, '+',
+    'VR\u00a0=\u00a0' + Vr_kV.toFixed(2) + '\u2220+0.0\u00b0\u00a0kV');
+
+  // Outer wires and series mid-section
+  const SERIES_W = Math.min(140, (juncR - juncL - 20) * 0.75);
+  const midX = (juncL + juncR) / 2;
+  const serL = midX - SERIES_W / 2;
+  const serR = midX + SERIES_W / 2;
+
+  _wireSeg(g, leftX + TERM_R, wireY, juncL, wireY);
+  _wireSeg(g, juncL, wireY, serL, wireY);
+  _drawSeriesRL(g, serL, wireY, serR, hasR);
+  _wireSeg(g, serR, wireY, juncR, wireY);
+  _wireSeg(g, juncR, wireY, rightX - TERM_R, wireY);
+
+  _junctionDot(g, juncL, wireY);
+  _junctionDot(g, juncR, wireY);
+
+  // Y/2 shunts
+  _drawShuntCap(g, juncL, wireY, shuntBot);
+  _drawGround(g, juncL, shuntBot);
+  _drawShuntCap(g, juncR, wireY, shuntBot);
+  _drawGround(g, juncR, shuntBot);
+
+  // Z value below series
+  _circuitLabel(g, midX, wireY + 18,
+    'Z\u00a0=\u00a0' + _fmtRect(outputs.B.re, outputs.B.im, '\u03a9', 2), 'middle');
+
+  // Y/2 value centred below diagram
+  const Y_half = 1 / (2 * outputs.Xc);
+  const Yunit  = Y_half < 0.001
+    ? `j${(Y_half * 1e6).toFixed(1)}\u00a0\u03bcS`
+    : `j${(Y_half * 1e3).toFixed(3)}\u00a0mS`;
+  _circuitLabel(g, midX, shuntBot + 22,
+    'Y/2\u00a0=\u00a0' + Yunit, 'middle');
+  // Side labels for caps
+  _circuitLabel(g, juncL - 12, (wireY + shuntBot) / 2, 'Y/2', 'end');
+  _circuitLabel(g, juncR + 12, (wireY + shuntBot) / 2, 'Y/2', 'start');
+
+  const IS = _IS_kA(outputs);
+  const IR = _computeIR(inputs, outputs);
+  const arrowY = wireY - 20;
+  _drawCurrentArrow(g, leftX + TERM_R + 3, juncL - 4, arrowY,
+    'IS\u00a0=\u00a0' + _fmtPhasor(IS.re, IS.im, 'kA', 3));
+  _drawCurrentArrow(g, juncR + 4, rightX - TERM_R - 3, arrowY,
+    'IR\u00a0=\u00a0' + _fmtPhasor(IR.re, IR.im, 'kA', 3));
+}
+
+function _drawDistributedCircuit(g, sw, sh, inputs, outputs) {
+  const PAD = 24, TERM_R = 4;
+  const wireY    = sh * 0.38;
+  const shuntBot = wireY + 50;
+  const leftX    = PAD + TERM_R;
+  const rightX   = sw - PAD - TERM_R;
+  const hasR     = Math.abs(outputs.B.re) > 0.001;
+  const N        = 3;
+
+  const Vr_kV = inputs.nomSyskV / Math.sqrt(3);
+  _drawTerminal(g, leftX,  wireY, '+',
+    'VS\u00a0=\u00a0' + _fmtPhasor(outputs.Vs_phase_kV.re, outputs.Vs_phase_kV.im, 'kV'));
+  _drawTerminal(g, rightX, wireY, '+',
+    'VR\u00a0=\u00a0' + Vr_kV.toFixed(2) + '\u2220+0.0\u00b0\u00a0kV');
+
+  const innerW = rightX - leftX - TERM_R * 2 - 8;
+  const cellW  = innerW / N;
+  const startX = leftX + TERM_R + 4;
+
+  for (let i = 0; i < N; i++) {
+    const x0    = startX + i * cellW;
+    const x1    = x0 + cellW;
+    const serL  = x0 + 2;
+    const serR  = x1 - 4;
+
+    _drawSeriesRL(g, serL, wireY, serR, hasR);
+
+    // Shunt at right end of each cell (omit last cell — right terminal is there)
+    if (i < N - 1) {
+      _junctionDot(g, x1, wireY);
+      _drawShuntCap(g, x1, wireY, shuntBot);
+      _drawGround(g, x1, shuntBot);
+    }
+  }
+
+  // Final link from last series end to right terminal
+  const lastSerR = startX + N * cellW - 4;
+  _wireSeg(g, lastSerR, wireY, rightX - TERM_R, wireY);
+
+  // Annotations on cell 0
+  _circuitLabel(g, startX + cellW / 2, wireY + 15, 'z\u00b7\u0394x', 'middle');
+  _circuitLabel(g, startX + cellW + 16, (wireY + shuntBot) / 2, 'y\u00b7\u0394x', 'start');
+
+  // Bottom parameter summary
+  const r_km = outputs.B.re / inputs.lineLengthKm;
+  const x_km = outputs.B.im / inputs.lineLengthKm;
+  const b_km = (1 / outputs.Xc) / inputs.lineLengthKm;
+  _circuitLabel(g, (leftX + rightX) / 2, shuntBot + 22,
+    `z\u00a0=\u00a0${r_km.toFixed(3)}\u00a0+\u00a0j${x_km.toFixed(3)}\u00a0\u03a9/km` +
+    `\u2002|\u2002b\u00a0=\u00a0${(b_km * 1e6).toFixed(2)}\u00a0\u03bcS/km`,
+    'middle');
+
+  // IS / IR arrows
+  const IS = _IS_kA(outputs);
+  const IR = _computeIR(inputs, outputs);
+  const arrowY = wireY - 20;
+  _drawCurrentArrow(g, leftX + TERM_R + 2, startX + cellW / 3, arrowY,
+    'IS\u00a0=\u00a0' + _fmtPhasor(IS.re, IS.im, 'kA', 3));
+  _drawCurrentArrow(g, lastSerR + 2, rightX - TERM_R - 2, arrowY,
+    'IR\u00a0=\u00a0' + _fmtPhasor(IR.re, IR.im, 'kA', 3));
+}
+
+// ─── Shared circuit label utilities ──────────────────────────────────────────
+
+/** Rightward current arrow from x1 to x2 at height y, label centred above. */
+function _drawCurrentArrow(parent, x1, x2, y, label) {
+  if (x2 - x1 < 8) return;
+  const AL = 5, AW = 2.5;
+  parent.appendChild(_el('line', { x1, y1: y, x2: x2 - AL, y2: y, stroke: '#555', 'stroke-width': '1' }));
+  _arrowhead(parent, x2, y, 1, 0, AL, AW);
+  _circuitLabel(parent, (x1 + x2) / 2, y - 4, label, 'middle');
+}
+
+/** White-knockout text label, readable on any background. */
+function _circuitLabel(parent, x, y, text, anchor = 'middle') {
+  if (!text) return;
   for (const [stroke, fill] of [['#fff', 'none'], ['none', '#333']]) {
     const t = _el('text', {
-      x, y,
-      'text-anchor': anchor, 'dominant-baseline': 'hanging',
+      x, y, 'text-anchor': anchor, 'dominant-baseline': 'auto',
       'font-family': FONT, 'font-size': '10',
-      fill, stroke, 'stroke-width': stroke === '#fff' ? '3' : '0',
-      'paint-order': 'stroke',
+      fill, stroke, 'stroke-width': stroke === '#fff' ? '3' : '0', 'paint-order': 'stroke',
     });
     t.textContent = text;
-    svg.appendChild(t);
+    parent.appendChild(t);
   }
 }
 
