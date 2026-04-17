@@ -24,6 +24,23 @@ function _el(tag, attrs = {}) {
   return el;
 }
 
+/**
+ * Draw a filled arrowhead with its tip at (tipX, tipY) pointing in
+ * direction (dirX, dirY) (must be a unit vector).
+ */
+function _arrowhead(svg, tipX, tipY, dirX, dirY, AL, AW) {
+  const bx = tipX - dirX * AL;
+  const by = tipY - dirY * AL;
+  svg.appendChild(_el('polygon', {
+    points: [
+      `${tipX},${tipY}`,
+      `${bx - dirY * AW},${by + dirX * AW}`,
+      `${bx + dirY * AW},${by - dirX * AW}`,
+    ].join(' '),
+    fill: '#555',
+  }));
+}
+
 /** Responsive SVG — fills parent, no fixed viewBox; screen px = SVG user units. */
 function _mkSvg() {
   return _el('svg', { width: '100%', height: '100%', style: 'display:block;' });
@@ -32,13 +49,33 @@ function _mkSvg() {
 function _makePane(title, extraClass) {
   const pane   = document.createElement('div');
   pane.className = 'dpane' + (extraClass ? ' ' + extraClass : '');
+
   const titleEl = document.createElement('div');
-  titleEl.className   = 'dpane-title';
-  titleEl.textContent = title;
+  titleEl.className = 'dpane-title';
+
+  const titleText = document.createElement('span');
+  titleText.className   = 'dpane-title-text';
+  titleText.textContent = title;
+
+  const controls = document.createElement('div');
+  controls.className = 'dpane-controls';
+
+  titleEl.append(titleText, controls);
+
   const body = document.createElement('div');
   body.className = 'dpane-body';
+
   pane.append(titleEl, body);
-  return [pane, body];
+  return [pane, body, controls];
+}
+
+/** Wire up maximize / restore toggle on a pane. */
+function _initMaximizeBtn(btn, pane) {
+  btn.addEventListener('click', () => {
+    const maximized = pane.classList.toggle('dpane--maximized');
+    btn.textContent = maximized ? '\u2750' : '\u25A1'; // ❐ vs □
+    btn.title       = maximized ? 'Restore' : 'Maximize';
+  });
 }
 
 // ─── Module state ─────────────────────────────────────────────────────────────
@@ -67,18 +104,44 @@ export function initDiagramContainer(container) {
   const grid = document.createElement('div');
   grid.className = 'diagram-grid';
 
-  const [pane1, body1] = _makePane('Conductor Arrangement', 'dpane-arrangement');
+  const [pane1, body1, controls1] = _makePane('Conductor Arrangement', 'dpane-arrangement');
   _svgBundle = _mkSvg();
   _svgBundle.style.cursor = 'grab';
   body1.appendChild(_svgBundle);
+  // Zoom-reset button
+  const btnZoomReset = document.createElement('button');
+  btnZoomReset.className   = 'dpane-btn';
+  btnZoomReset.textContent = '\u2316'; // ⌖
+  btnZoomReset.title       = 'Reset zoom';
+  btnZoomReset.addEventListener('click', () => { _fitBundleView(); _redrawArrangement(); });
+  controls1.appendChild(btnZoomReset);
+  // Maximize button
+  const btnMax1 = document.createElement('button');
+  btnMax1.className   = 'dpane-btn';
+  btnMax1.textContent = '\u25A1'; // □
+  btnMax1.title       = 'Maximize';
+  _initMaximizeBtn(btnMax1, pane1);
+  controls1.appendChild(btnMax1);
 
-  const [pane2, body2] = _makePane('Circuit Diagram', 'dpane-circuit');
+  const [pane2, body2, controls2] = _makePane('Circuit Diagram', 'dpane-circuit');
   _svgCircuit = _mkSvg();
   body2.appendChild(_svgCircuit);
+  const btnMax2 = document.createElement('button');
+  btnMax2.className   = 'dpane-btn';
+  btnMax2.textContent = '\u25A1';
+  btnMax2.title       = 'Maximize';
+  _initMaximizeBtn(btnMax2, pane2);
+  controls2.appendChild(btnMax2);
 
-  const [pane3, body3] = _makePane('Phasor Diagram', 'dpane-phasor');
+  const [pane3, body3, controls3] = _makePane('Phasor Diagram', 'dpane-phasor');
   _svgPhasor = _mkSvg();
   body3.appendChild(_svgPhasor);
+  const btnMax3 = document.createElement('button');
+  btnMax3.className   = 'dpane-btn';
+  btnMax3.textContent = '\u25A1';
+  btnMax3.title       = 'Maximize';
+  _initMaximizeBtn(btnMax3, pane3);
+  controls3.appendChild(btnMax3);
 
   grid.append(pane1, pane2, pane3);
   container.appendChild(grid);
@@ -149,6 +212,7 @@ function _initBundleZoom(svg) {
   let drag = null;
   svg.addEventListener('mousedown', e => {
     if (e.button !== 0) return;
+    e.preventDefault(); // suppress text selection during drag
     drag = { x: e.clientX, y: e.clientY };
     svg.style.cursor = 'grabbing';
   }, sig);
@@ -245,7 +309,7 @@ function _redrawArrangement() {
 
   // Part 3 will position all three phase centres here.
   // For now draw one bundle at the world origin → screen (tx, ty).
-  _drawBundle(svg, tx, ty, scCount, dispR, dispSpacing, rPhys);
+  _drawBundle(svg, tx, ty, scCount, dispR, dispSpacing, rPhys, scSpacingM);
 
   _drawScaleBadge(svg);
 }
@@ -257,8 +321,9 @@ function _redrawArrangement() {
  * `dispR`       — display radius (screen px); already clamped to MIN_R_PX
  * `dispSpacing` — display sub-conductor centre-to-centre (screen px)
  * `rPhys`       — physical radius (m) for label text
+ * `scSpacingM`  — physical sub-conductor spacing (m) for label text
  */
-function _drawBundle(svg, cx, cy, scCount, dispR, dispSpacing, rPhys) {
+function _drawBundle(svg, cx, cy, scCount, dispR, dispSpacing, rPhys, scSpacingM) {
   const offsets = bundleOffsets(scCount, dispSpacing);
 
   offsets.forEach(([dx, dy]) => {
@@ -273,22 +338,104 @@ function _drawBundle(svg, cx, cy, scCount, dispR, dispSpacing, rPhys) {
   const ox = cx + dx0;
   const oy = cy + dy0;
 
+  // Dashed horizontal line from circle centre toward rim (stop short of tip)
+  // Arrowhead scales with the circle so it never swamps a small circle.
+  const ARROW_LEN = Math.min(6, dispR * 0.35);
+  const ARROW_W   = ARROW_LEN * 0.5;
   svg.appendChild(_el('line', {
-    x1: ox, y1: oy, x2: ox + dispR, y2: oy,
+    x1: ox, y1: oy,
+    x2: ox + dispR - ARROW_LEN, y2: oy,
     stroke: '#555', 'stroke-width': '0.75', 'stroke-dasharray': '2,2',
   }));
-  svg.appendChild(_el('line', {
-    x1: ox + dispR, y1: oy - 4, x2: ox + dispR, y2: oy + 4,
-    stroke: '#555', 'stroke-width': '1',
+  // Arrowhead — solid triangle, tip at circumference, pointing right
+  svg.appendChild(_el('polygon', {
+    points: [
+      `${ox + dispR},${oy}`,                           // tip (on circumference)
+      `${ox + dispR - ARROW_LEN},${oy - ARROW_W}`,    // base-top
+      `${ox + dispR - ARROW_LEN},${oy + ARROW_W}`,    // base-bottom
+    ].join(' '),
+    fill: '#555',
   }));
+  // "r = X mm" label — centred above the circle
   const rMm = (rPhys * 1000).toFixed(1);
   const lbl = _el('text', {
-    x: ox + dispR + 5, y: oy,
+    x: ox, y: oy - dispR - 5,
+    'text-anchor': 'middle',
     'font-family': FONT, 'font-size': '10', fill: '#222',
-    'dominant-baseline': 'middle',
+    'dominant-baseline': 'auto',
   });
   lbl.textContent = `r\u2009=\u2009${rMm}\u00a0mm`;
   svg.appendChild(lbl);
+
+  // Sub-conductor spacing dimension between first two sub-conductors
+  if (scCount >= 2 && scSpacingM != null) {
+    const [dx1, dy1] = offsets[1];
+    const sMm = (scSpacingM * 1000).toFixed(0);
+    _drawSpacingDim(
+      svg,
+      cx + dx0, cy + dy0,
+      cx + dx1, cy + dy1,
+      dispR,
+      `s\u2009=\u2009${sMm}\u00a0mm`,
+    );
+  }
+}
+
+/**
+ * Draw an engineering dimension line between two sub-conductor centres
+ * (ax,ay) and (bx,by), offset outward from the bundle, with inward
+ * arrowheads and a centred label.
+ */
+function _drawSpacingDim(svg, ax, ay, bx, by, dispR, label) {
+  const dx   = bx - ax, dy = by - ay;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  if (dist < 1) return;
+
+  const ux = dx / dist, uy = dy / dist;   // unit along AB
+  // Perp offset toward the natural outer side:
+  //   vertical pair  → right  (+y perp of down = +right)
+  //   horizontal pair → up    (+y perp of right = +up... wait)
+  // Using (+uy, -ux): for AB=(0,+1) → perp=(+1,0) right ✓
+  //                   for AB=(+1,0) → perp=(0,-1) up   ✓
+  const px = +uy, py = -ux;
+
+  const OFFSET = dispR + 16;  // dim line distance from circle centres
+  const EXT    = 5;           // extension line overshoot past dim line
+  const AL     = 5, AW = 2.5; // arrowhead size (fixed — not inside a circle)
+
+  // Extension lines: from just outside each circle rim → past dim line
+  const extStart = dispR + 2;
+  [[ax, ay], [bx, by]].forEach(([cx2, cy2]) => {
+    svg.appendChild(_el('line', {
+      x1: cx2 + px * extStart, y1: cy2 + py * extStart,
+      x2: cx2 + px * (OFFSET + EXT), y2: cy2 + py * (OFFSET + EXT),
+      stroke: '#777', 'stroke-width': '0.75',
+    }));
+  });
+
+  // Dim line endpoints
+  const lax = ax + px * OFFSET, lay = ay + py * OFFSET;
+  const lbx = bx + px * OFFSET, lby = by + py * OFFSET;
+
+  svg.appendChild(_el('line', {
+    x1: lax, y1: lay, x2: lbx, y2: lby,
+    stroke: '#555', 'stroke-width': '1',
+  }));
+
+  // Inward arrowheads: tip at each end, pointing toward the other
+  _arrowhead(svg, lax, lay, +ux, +uy, AL, AW);  // A tip → toward B
+  _arrowhead(svg, lbx, lby, -ux, -uy, AL, AW);  // B tip → toward A
+
+  // Label at midpoint, nudged further outward so it clears the dim line
+  const mx = (lax + lbx) / 2 + px * 8;
+  const my = (lay + lby) / 2 + py * 8;
+  const t = _el('text', {
+    x: mx, y: my,
+    'text-anchor': 'middle', 'dominant-baseline': 'middle',
+    'font-family': FONT, 'font-size': '10', fill: '#222',
+  });
+  t.textContent = label;
+  svg.appendChild(t);
 }
 
 // ─── Scale badge ──────────────────────────────────────────────────────────────
@@ -302,21 +449,31 @@ function _drawScaleBadge(svg) {
     ? `1\u2009px\u00a0\u2248\u2009${(physPerPx * 1000).toFixed(2)}\u00a0mm`
     : `1\u2009px\u00a0\u2248\u2009${physPerPx.toFixed(3)}\u00a0m`;
 
-  const PAD = 3, BH = 14, BW = 130;
-  const bx = sw - BW - 6, by = sh - BH - 6;
+  const PAD = 3, BH = 14;
 
-  svg.appendChild(_el('rect', {
-    x: bx - PAD, y: by - PAD,
-    width: BW + PAD * 2, height: BH + PAD * 2,
-    fill: '#f0f0f0', stroke: '#808080', 'stroke-width': '0.5',
-  }));
+  // Append text first so getBBox() returns the real rendered width
   const t = _el('text', {
-    x: bx, y: by + BH / 2,
+    x: 0, y: 0,
     'font-family': FONT, 'font-size': '9', fill: '#444',
     'dominant-baseline': 'middle',
   });
   t.textContent = label;
   svg.appendChild(t);
+
+  const tw  = t.getBBox().width || 80;
+  const bx  = sw - tw - PAD * 2 - 6;
+  const by  = sh - BH - 6;
+
+  t.setAttribute('x', bx);
+  t.setAttribute('y', by + BH / 2);
+
+  // Insert rect behind the text
+  const rect = _el('rect', {
+    x: bx - PAD, y: by - PAD,
+    width: tw + PAD * 2, height: BH + PAD * 2,
+    fill: '#f0f0f0', stroke: '#808080', 'stroke-width': '0.5',
+  });
+  svg.insertBefore(rect, t);
 }
 
 // ─── Placeholders ─────────────────────────────────────────────────────────────

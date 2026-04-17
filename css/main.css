@@ -506,10 +506,43 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
 .dpane-title {
   flex: 0 0 auto;
   background: #d4d0c8;
-  padding: 1px 5px;
+  padding: 0 1px 0 5px;
   font-size: 10px; font-weight: bold;
   border-bottom: 1px solid #808080;
+  display: flex; align-items: center; justify-content: space-between;
+  height: 18px; min-height: 18px;
 }
+.dpane-title-text { flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+/* Compact controls in dpane title — reuse 98.css button look but smaller */
+.dpane-controls {
+  display: flex; align-items: center; gap: 1px;
+  flex-shrink: 0; padding: 1px 1px 1px 2px;
+}
+.dpane-btn {
+  width: 16px; height: 14px;
+  padding: 0; margin: 0;
+  font-size: 9px; line-height: 1;
+  min-width: unset;
+  cursor: pointer;
+  background: silver;
+  box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #fff,
+              inset -2px -2px #808080, inset 2px 2px #dfdfdf;
+  border: none; outline: none;
+  font-family: 'Pixelated MS Sans Serif', 'MS Sans Serif', sans-serif;
+  -webkit-user-select: none; user-select: none;
+}
+.dpane-btn:active {
+  box-shadow: inset -1px -1px #fff, inset 1px 1px #0a0a0a,
+              inset -2px -2px #dfdfdf, inset 2px 2px #808080;
+}
+/* Maximised pane fills the whole grid */
+.dpane--maximized {
+  grid-column: 1 / -1 !important;
+  grid-row: 1 / -1 !important;
+  z-index: 2;
+  border: none;
+}
+.diagram-grid:has(.dpane--maximized) .dpane:not(.dpane--maximized) { display: none; }
 .dpane-body {
   flex: 1; overflow: hidden;
   display: flex;
