@@ -169,6 +169,10 @@ let _overlayScale  = null;
 // Pane 2 title text element (updated dynamically with the model name)
 let _circuitTitleEl = null;
 
+// Distributed model view toggle: 'ladder' | 'diff'
+let _distMode    = 'ladder';
+let _distModeBtn = null;  // the toggle button element
+
 // Zoom/pan state for Pane 2 (circuit diagram — CSS transform on _circuitG)
 let _viewCircuit  = { zoom: 1, panX: 0, panY: 0 };
 let _circuitAC    = null;
@@ -262,6 +266,20 @@ export function initDiagramContainer(container) {
     if (_circuitG) _circuitG.setAttribute('transform', '');
   });
   controls2.appendChild(btnZoomReset2);
+
+  // Distributed-mode toggle (hidden by default; shown only when model=2)
+  _distModeBtn = document.createElement('button');
+  _distModeBtn.className       = 'dpane-btn dpane-btn-text';
+  _distModeBtn.textContent     = '\u0394';
+  _distModeBtn.dataset.tooltip = 'Switch to d/dx view';
+  _distModeBtn.style.display   = 'none';
+  _distModeBtn.addEventListener('click', () => {
+    _distMode = _distMode === 'ladder' ? 'diff' : 'ladder';
+    _distModeBtn.textContent     = _distMode === 'ladder' ? '\u0394' : '\u2261';
+    _distModeBtn.dataset.tooltip = _distMode === 'ladder' ? 'Switch to d/dx view' : 'Switch to ladder view';
+    if (_bs.inputs && _lastOutputs) _redrawCircuit(_bs.inputs, _lastOutputs);
+  });
+  controls2.appendChild(_distModeBtn);
 
   const btnMax2 = document.createElement('button');
   btnMax2.className   = 'dpane-btn';
@@ -995,12 +1013,12 @@ function _termNode(parent, x, y) {
  */
 function _drawVoltageArrow(parent, x, topY, botY, label, side) {
   const AL = 6, AW = 3;
-  const midY = (topY + botY) / 2;
   parent.appendChild(_el('line', { x1: x, y1: botY, x2: x, y2: topY + AL,
     stroke: '#555', 'stroke-width': '1.5' }));
   _arrowhead(parent, x, topY, 0, -1, AL, AW);
   const lx = side === 'left' ? x - 8 : x + 8;
-  _circuitLabel(parent, lx, midY, label, side === 'left' ? 'end' : 'start');
+  // Label sits just below the arrowhead tip (near the top wire)
+  _circuitLabel(parent, lx, topY + 14, label, side === 'left' ? 'end' : 'start');
 }
 
 // ─── ABCD helpers ─────────────────────────────────────────────────────────────
@@ -1040,165 +1058,307 @@ function _redrawCircuit(inputs, outputs) {
     _circuitTitleEl.textContent =
       `Circuit Diagram \u2014 ${MODEL_NAMES[inputs.model] ?? 'Unknown'}`;
 
+  // Show/hide the distributed-mode toggle button
+  if (_distModeBtn)
+    _distModeBtn.style.display = inputs.model === 2 ? '' : 'none';
+
   if      (inputs.model === 0) _drawShortCircuit(_circuitG, sw, sh, inputs, outputs);
   else if (inputs.model === 1) _drawNominalPiCircuit(_circuitG, sw, sh, inputs, outputs);
-  else                         _drawDistributedCircuit(_circuitG, sw, sh, inputs, outputs);
+  else if (_distMode === 'diff') _drawDistributedDiff(_circuitG, sw, sh, inputs, outputs);
+  else                           _drawDistributedCircuit(_circuitG, sw, sh, inputs, outputs);
 }
 
 function _drawShortCircuit(g, sw, sh, inputs, outputs) {
-  const PAD = 24, TERM_R = 4;
-  const wireY  = sh * 0.45;
-  const leftX  = PAD + TERM_R;
-  const rightX = sw - PAD - TERM_R;
+  const PAD  = 30;
+  const topY = Math.max(sh * 0.40, 90);
+  const botY = topY + 56;
+  const leftX  = PAD + 90;   // leave room for VS label on the left
+  const rightX = sw - PAD - 90;
   const hasR   = Math.abs(outputs.B.re) > 0.001;
 
-  const Vr_kV = inputs.nomSyskV / Math.sqrt(3);
-  _drawTerminal(g, leftX,  wireY, '+',
-    'VS\u00a0=\u00a0' + _fmtPhasor(outputs.Vs_phase_kV.re, outputs.Vs_phase_kV.im, 'kV'));
-  _drawTerminal(g, rightX, wireY, '+',
-    'VR\u00a0=\u00a0' + Vr_kV.toFixed(2) + '\u2220+0.0\u00b0\u00a0kV');
+  // ── Return wire ───────────────────────────────────────────────────────────
+  _wireSeg(g, leftX, botY, rightX, botY);
+  _termNode(g, leftX,  botY);
+  _termNode(g, rightX, botY);
 
-  const SERIES_W = Math.min(140, (rightX - leftX - 30) * 0.55);
+  // ── Top wire + series element ─────────────────────────────────────────────
+  const SERIES_W = Math.min(140, (rightX - leftX) * 0.50);
   const midX = (leftX + rightX) / 2;
   const serL = midX - SERIES_W / 2;
   const serR = midX + SERIES_W / 2;
 
-  _wireSeg(g, leftX + TERM_R, wireY, serL, wireY);
-  _drawSeriesRL(g, serL, wireY, serR, hasR);
-  _wireSeg(g, serR, wireY, rightX - TERM_R, wireY);
-  _circuitLabel(g, midX, wireY + 20,
-    'Z\u00a0=\u00a0' + _fmtRect(outputs.B.re, outputs.B.im, '\u03a9', 2), 'middle');
+  _wireSeg(g, leftX,  topY, serL, topY);
+  _drawSeriesRL(g, serL, topY, serR, hasR);
+  _wireSeg(g, serR, topY, rightX, topY);
+  _termNode(g, leftX,  topY);
+  _termNode(g, rightX, topY);
 
+  // Z label below series element (series bumps protrude 7px above topY)
+  _circuitLabel(g, midX, topY + 16,
+    'Z\u00a0=\u00a0' + _fmtRect(outputs.B.re, outputs.B.im, '\u03a9', 3), 'middle');
+
+  // ── Voltage arrows ────────────────────────────────────────────────────────
+  const Vr_kV = inputs.nomSyskV / Math.sqrt(3);
+  _drawVoltageArrow(g, leftX,  topY, botY,
+    'VS\u00a0=\u00a0' + _fmtPhasor(outputs.Vs_phase_kV.re, outputs.Vs_phase_kV.im, 'kV'), 'left');
+  _drawVoltageArrow(g, rightX, topY, botY,
+    'VR\u00a0=\u00a0' + Vr_kV.toFixed(3) + '\u2220+0.0\u00b0\u00a0kV', 'right');
+
+  // ── Current arrows ────────────────────────────────────────────────────────
+  const arrowY = topY - 26;
   const IS = _IS_kA(outputs);
   const IR = _computeIR(inputs, outputs);
-  const arrowY = wireY - 20;
-  _drawCurrentArrow(g, leftX + TERM_R + 3, serL - 3, arrowY,
+  _drawCurrentArrow(g, leftX  + 4, serL - 3, arrowY,
     'IS\u00a0=\u00a0' + _fmtPhasor(IS.re, IS.im, 'kA', 3));
-  _drawCurrentArrow(g, serR + 3, rightX - TERM_R - 3, arrowY,
+  _drawCurrentArrow(g, serR + 3, rightX - 4, arrowY,
     'IR\u00a0=\u00a0' + _fmtPhasor(IR.re, IR.im, 'kA', 3));
 }
 
 function _drawNominalPiCircuit(g, sw, sh, inputs, outputs) {
-  const PAD = 24, TERM_R = 4;
-  const wireY    = sh * 0.40;
-  const shuntBot = wireY + 52;
-  const leftX    = PAD + TERM_R;
-  const rightX   = sw - PAD - TERM_R;
-  const hasR     = Math.abs(outputs.B.re) > 0.001;
+  const PAD  = 30;
+  const topY = Math.max(sh * 0.35, 80);
+  const botY = topY + 80;
+  const leftX  = PAD + 90;
+  const rightX = sw - PAD - 90;
+  const hasR   = Math.abs(outputs.B.re) > 0.001;
 
-  const juncL = leftX  + 28;
-  const juncR = rightX - 28;
+  const juncL = leftX  + 32;
+  const juncR = rightX - 32;
 
-  const Vr_kV = inputs.nomSyskV / Math.sqrt(3);
-  _drawTerminal(g, leftX,  wireY, '+',
-    'VS\u00a0=\u00a0' + _fmtPhasor(outputs.Vs_phase_kV.re, outputs.Vs_phase_kV.im, 'kV'));
-  _drawTerminal(g, rightX, wireY, '+',
-    'VR\u00a0=\u00a0' + Vr_kV.toFixed(2) + '\u2220+0.0\u00b0\u00a0kV');
+  // ── Return wire ───────────────────────────────────────────────────────────
+  _wireSeg(g, leftX, botY, rightX, botY);
+  _termNode(g, leftX,  botY);
+  _termNode(g, rightX, botY);
 
-  // Outer wires and series mid-section
-  const SERIES_W = Math.min(140, (juncR - juncL - 20) * 0.75);
+  // ── Top wires + series element ────────────────────────────────────────────
+  const SERIES_W = Math.min(130, (juncR - juncL) * 0.70);
   const midX = (juncL + juncR) / 2;
   const serL = midX - SERIES_W / 2;
   const serR = midX + SERIES_W / 2;
 
-  _wireSeg(g, leftX + TERM_R, wireY, juncL, wireY);
-  _wireSeg(g, juncL, wireY, serL, wireY);
-  _drawSeriesRL(g, serL, wireY, serR, hasR);
-  _wireSeg(g, serR, wireY, juncR, wireY);
-  _wireSeg(g, juncR, wireY, rightX - TERM_R, wireY);
+  _wireSeg(g, leftX, topY, juncL, topY);
+  _wireSeg(g, juncL, topY, serL,  topY);
+  _drawSeriesRL(g, serL, topY, serR, hasR);
+  _wireSeg(g, serR, topY, juncR,  topY);
+  _wireSeg(g, juncR, topY, rightX, topY);
+  _termNode(g, leftX,  topY);
+  _termNode(g, rightX, topY);
+  _junctionDot(g, juncL, topY);
+  _junctionDot(g, juncR, topY);
 
-  _junctionDot(g, juncL, wireY);
-  _junctionDot(g, juncR, wireY);
+  // ── Y/2 shunts (cap connects junctions to return wire) ────────────────────
+  _drawShuntCap(g, juncL, topY, botY);
+  _drawShuntCap(g, juncR, topY, botY);
+  _junctionDot(g, juncL, botY);
+  _junctionDot(g, juncR, botY);
 
-  // Y/2 shunts
-  _drawShuntCap(g, juncL, wireY, shuntBot);
-  _drawGround(g, juncL, shuntBot);
-  _drawShuntCap(g, juncR, wireY, shuntBot);
-  _drawGround(g, juncR, shuntBot);
+  // ── Labels ────────────────────────────────────────────────────────────────
+  // Z: below series, above the cap midpoint
+  _circuitLabel(g, midX, topY + 16,
+    'Z\u00a0=\u00a0' + _fmtRect(outputs.B.re, outputs.B.im, '\u03a9', 3), 'middle');
 
-  // Z value below series
-  _circuitLabel(g, midX, wireY + 18,
-    'Z\u00a0=\u00a0' + _fmtRect(outputs.B.re, outputs.B.im, '\u03a9', 2), 'middle');
-
-  // Y/2 value centred below diagram
   const Y_half = 1 / (2 * outputs.Xc);
-  const Yunit  = Y_half < 0.001
+  const Ylbl   = Y_half < 1e-3
     ? `j${(Y_half * 1e6).toFixed(1)}\u00a0\u03bcS`
     : `j${(Y_half * 1e3).toFixed(3)}\u00a0mS`;
-  _circuitLabel(g, midX, shuntBot + 22,
-    'Y/2\u00a0=\u00a0' + Yunit, 'middle');
-  // Side labels for caps
-  _circuitLabel(g, juncL - 12, (wireY + shuntBot) / 2, 'Y/2', 'end');
-  _circuitLabel(g, juncR + 12, (wireY + shuntBot) / 2, 'Y/2', 'start');
+  // Y/2 labels beside each cap, at the cap midpoint
+  const capMidY = (topY + botY) / 2;
+  _circuitLabel(g, juncL - 10, capMidY, 'Y/2\u00a0=\u00a0' + Ylbl, 'end');
+  _circuitLabel(g, juncR + 10, capMidY, 'Y/2\u00a0=\u00a0' + Ylbl, 'start');
 
+  // ── Voltage arrows ────────────────────────────────────────────────────────
+  const Vr_kV = inputs.nomSyskV / Math.sqrt(3);
+  _drawVoltageArrow(g, leftX,  topY, botY,
+    'VS\u00a0=\u00a0' + _fmtPhasor(outputs.Vs_phase_kV.re, outputs.Vs_phase_kV.im, 'kV'), 'left');
+  _drawVoltageArrow(g, rightX, topY, botY,
+    'VR\u00a0=\u00a0' + Vr_kV.toFixed(3) + '\u2220+0.0\u00b0\u00a0kV', 'right');
+
+  // ── Current arrows ────────────────────────────────────────────────────────
+  const arrowY = topY - 26;
   const IS = _IS_kA(outputs);
   const IR = _computeIR(inputs, outputs);
-  const arrowY = wireY - 20;
-  _drawCurrentArrow(g, leftX + TERM_R + 3, juncL - 4, arrowY,
+  _drawCurrentArrow(g, leftX  + 4, juncL - 4, arrowY,
     'IS\u00a0=\u00a0' + _fmtPhasor(IS.re, IS.im, 'kA', 3));
-  _drawCurrentArrow(g, juncR + 4, rightX - TERM_R - 3, arrowY,
+  _drawCurrentArrow(g, juncR + 4, rightX - 4, arrowY,
     'IR\u00a0=\u00a0' + _fmtPhasor(IR.re, IR.im, 'kA', 3));
 }
 
 function _drawDistributedCircuit(g, sw, sh, inputs, outputs) {
-  const PAD = 24, TERM_R = 4;
-  const wireY    = sh * 0.38;
-  const shuntBot = wireY + 50;
-  const leftX    = PAD + TERM_R;
-  const rightX   = sw - PAD - TERM_R;
-  const hasR     = Math.abs(outputs.B.re) > 0.001;
-  const N        = 3;
+  // Fixed logical canvas width so elements never compress below comfortable size
+  const CANVAS_W = Math.max(sw, 820);
+  const PAD  = 30;
+  const topY = Math.max(sh * 0.35, 80);
+  const botY = topY + 90;          // more vertical headroom for caps
+  const leftX  = PAD + 90;
+  const rightX = CANVAS_W - PAD - 90;
+  const hasR   = Math.abs(outputs.B.re) > 0.001;
 
-  const Vr_kV = inputs.nomSyskV / Math.sqrt(3);
-  _drawTerminal(g, leftX,  wireY, '+',
-    'VS\u00a0=\u00a0' + _fmtPhasor(outputs.Vs_phase_kV.re, outputs.Vs_phase_kV.im, 'kV'));
-  _drawTerminal(g, rightX, wireY, '+',
-    'VR\u00a0=\u00a0' + Vr_kV.toFixed(2) + '\u2220+0.0\u00b0\u00a0kV');
+  // Three cells: [cell][cap][cell][cap][···60px···][cell][cap][rightX]
+  // Each cell gets a fixed comfortable width
+  const CELL_W = hasR ? 170 : 130;   // wider when resistor is included
+  const ELL_W  = 60;
+  // Layout: leftX → cell1 → j1 → cell2 → j2 → ell → j3 → cell3 → j4 → rightX
+  const j1    = leftX  + CELL_W;
+  const j2    = j1     + CELL_W;
+  const ellL  = j2;
+  const ellR  = ellL   + ELL_W;
+  const j3    = ellR;
+  const j4    = j3     + CELL_W;
+  // short wire from j4 to rightX
+  const TRAIL = 30;
+  // If j4 + TRAIL > rightX, push rightX out (canvas is pannable anyway)
+  const actualRightX = Math.max(rightX, j4 + TRAIL);
 
-  const innerW = rightX - leftX - TERM_R * 2 - 8;
-  const cellW  = innerW / N;
-  const startX = leftX + TERM_R + 4;
+  // ── Return wire ───────────────────────────────────────────────────────────
+  _wireSeg(g, leftX, botY, actualRightX, botY);
+  _termNode(g, leftX,        botY);
+  _termNode(g, actualRightX, botY);
 
-  for (let i = 0; i < N; i++) {
-    const x0    = startX + i * cellW;
-    const x1    = x0 + cellW;
-    const serL  = x0 + 2;
-    const serR  = x1 - 4;
+  // ── Cell 1 ────────────────────────────────────────────────────────────────
+  _drawSeriesRL(g, leftX + 2, topY, j1, hasR);
+  _junctionDot(g, j1, topY);
+  _drawShuntCap(g, j1, topY, botY);
+  _junctionDot(g, j1, botY);
 
-    _drawSeriesRL(g, serL, wireY, serR, hasR);
+  // ── Cell 2 ────────────────────────────────────────────────────────────────
+  _drawSeriesRL(g, j1, topY, j2, hasR);
+  _junctionDot(g, j2, topY);
+  _drawShuntCap(g, j2, topY, botY);
+  _junctionDot(g, j2, botY);
 
-    // Shunt at right end of each cell (omit last cell — right terminal is there)
-    if (i < N - 1) {
-      _junctionDot(g, x1, wireY);
-      _drawShuntCap(g, x1, wireY, shuntBot);
-      _drawGround(g, x1, shuntBot);
-    }
+  // ── Ellipsis break ────────────────────────────────────────────────────────
+  for (const lineY of [topY, botY]) {
+    _wireSeg(g, j2, lineY, ellL + 8, lineY);
+    _wireSeg(g, ellR - 8, lineY, ellR, lineY);
+    for (let d = 0; d < 3; d++)
+      g.appendChild(_el('circle', { cx: ellL + 14 + d * 10, cy: lineY, r: 2.5, fill: '#555' }));
   }
 
-  // Final link from last series end to right terminal
-  const lastSerR = startX + N * cellW - 4;
-  _wireSeg(g, lastSerR, wireY, rightX - TERM_R, wireY);
+  // ── Cell 3 (after ellipsis) ───────────────────────────────────────────────
+  _drawSeriesRL(g, j3, topY, j4, hasR);
+  _junctionDot(g, j3, topY);  // junction at left end of cell3
+  _junctionDot(g, j3, botY);
+  _junctionDot(g, j4, topY);
+  _drawShuntCap(g, j4, topY, botY);
+  _junctionDot(g, j4, botY);
 
-  // Annotations on cell 0
-  _circuitLabel(g, startX + cellW / 2, wireY + 15, 'z\u00b7\u0394x', 'middle');
-  _circuitLabel(g, startX + cellW + 16, (wireY + shuntBot) / 2, 'y\u00b7\u0394x', 'start');
+  // Trail wire to right terminal
+  _wireSeg(g, j4, topY, actualRightX, topY);
+  _termNode(g, leftX,        topY);
+  _termNode(g, actualRightX, topY);
 
-  // Bottom parameter summary
+  // ── Annotations ───────────────────────────────────────────────────────────
+  _circuitLabel(g, leftX + CELL_W / 2, topY - 18, 'z\u00b7\u0394x', 'middle');
+  _circuitLabel(g, j1 + 10, (topY + botY) / 2, 'y\u00b7\u0394x', 'start');
+
   const r_km = outputs.B.re / inputs.lineLengthKm;
   const x_km = outputs.B.im / inputs.lineLengthKm;
   const b_km = (1 / outputs.Xc) / inputs.lineLengthKm;
-  _circuitLabel(g, (leftX + rightX) / 2, shuntBot + 22,
+  _circuitLabel(g, (leftX + actualRightX) / 2, botY + 20,
     `z\u00a0=\u00a0${r_km.toFixed(3)}\u00a0+\u00a0j${x_km.toFixed(3)}\u00a0\u03a9/km` +
-    `\u2002|\u2002b\u00a0=\u00a0${(b_km * 1e6).toFixed(2)}\u00a0\u03bcS/km`,
-    'middle');
+    `\u2002|\u2002b\u00a0=\u00a0${(b_km * 1e6).toFixed(2)}\u00a0\u03bcS/km`, 'middle');
 
-  // IS / IR arrows
+  // ── Voltage arrows ────────────────────────────────────────────────────────
+  const Vr_kV = inputs.nomSyskV / Math.sqrt(3);
+  _drawVoltageArrow(g, leftX,        topY, botY,
+    'VS\u00a0=\u00a0' + _fmtPhasor(outputs.Vs_phase_kV.re, outputs.Vs_phase_kV.im, 'kV'), 'left');
+  _drawVoltageArrow(g, actualRightX, topY, botY,
+    'VR\u00a0=\u00a0' + Vr_kV.toFixed(3) + '\u2220+0.0\u00b0\u00a0kV', 'right');
+
   const IS = _IS_kA(outputs);
   const IR = _computeIR(inputs, outputs);
-  const arrowY = wireY - 20;
-  _drawCurrentArrow(g, leftX + TERM_R + 2, startX + cellW / 3, arrowY,
+  const arrowY = topY - 28;
+  _drawCurrentArrow(g, leftX + 4, leftX + CELL_W * 0.45, arrowY,
     'IS\u00a0=\u00a0' + _fmtPhasor(IS.re, IS.im, 'kA', 3));
-  _drawCurrentArrow(g, lastSerR + 2, rightX - TERM_R - 2, arrowY,
+  _drawCurrentArrow(g, j4 + 4, actualRightX - 4, arrowY,
+    'IR\u00a0=\u00a0' + _fmtPhasor(IR.re, IR.im, 'kA', 3));
+}
+
+// ─── Distributed d/dx view (differential element) ────────────────────────────
+
+function _drawDistributedDiff(g, sw, sh, inputs, outputs) {
+  const CANVAS_W = Math.max(sw, 820);
+  const PAD  = 30;
+  const topY = Math.max(sh * 0.32, 70);
+  const botY = topY + 90;
+  const leftX  = PAD + 90;
+  const rightX = CANVAS_W - PAD - 90;
+  const hasR   = Math.abs(outputs.B.re) > 0.001;
+  const midX   = (leftX + rightX) / 2;
+
+  // Box is wide enough to hold the series RL element comfortably
+  const BOX_HALF = hasR ? 90 : 70;
+  const boxL = midX - BOX_HALF, boxR = midX + BOX_HALF;
+
+  // Dashed box border
+  g.appendChild(_el('rect', {
+    x: boxL, y: topY - 18, width: boxR - boxL, height: botY - topY + 36,
+    fill: 'none', stroke: '#888', 'stroke-width': '1', 'stroke-dasharray': '5,3', rx: '3',
+  }));
+
+  // ── Top wire ─────────────────────────────────────────────────────────────
+  for (let d = 0; d < 3; d++)
+    g.appendChild(_el('circle', { cx: leftX + 14 + d * 10, cy: topY, r: 2.5, fill: '#555' }));
+  _wireSeg(g, leftX + 44, topY, boxL, topY);
+  _drawSeriesRL(g, boxL, topY, boxR, hasR);
+  _wireSeg(g, boxR, topY, rightX - 44, topY);
+  for (let d = 0; d < 3; d++)
+    g.appendChild(_el('circle', { cx: rightX - 40 + d * 10, cy: topY, r: 2.5, fill: '#555' }));
+  _termNode(g, leftX,  topY);
+  _termNode(g, rightX, topY);
+
+  // ── Shunt cap at right end of box ────────────────────────────────────────
+  _junctionDot(g, boxR, topY);
+  _drawShuntCap(g, boxR, topY, botY);
+  _junctionDot(g, boxR, botY);
+
+  // ── Bottom wire ───────────────────────────────────────────────────────────
+  for (let d = 0; d < 3; d++)
+    g.appendChild(_el('circle', { cx: leftX + 14 + d * 10, cy: botY, r: 2.5, fill: '#555' }));
+  _wireSeg(g, leftX + 44, botY, rightX - 44, botY);
+  for (let d = 0; d < 3; d++)
+    g.appendChild(_el('circle', { cx: rightX - 40 + d * 10, cy: botY, r: 2.5, fill: '#555' }));
+  _termNode(g, leftX,  botY);
+  _termNode(g, rightX, botY);
+
+  // ── dx dimension arrow ────────────────────────────────────────────────────
+  const dimY = botY + 24;
+  _wireSeg(g, boxL, dimY - 5, boxL, dimY + 5);
+  _wireSeg(g, boxR, dimY - 5, boxR, dimY + 5);
+  _wireSeg(g, boxL + 8, dimY, boxR - 8, dimY);
+  _arrowhead(g, boxL, dimY, -1, 0, 6, 3);
+  _arrowhead(g, boxR, dimY, +1, 0, 6, 3);
+  _circuitLabel(g, midX, dimY + 15, 'dx', 'middle');
+
+  // ── l dimension arrow ─────────────────────────────────────────────────────
+  const dimY2 = dimY + 32;
+  _wireSeg(g, leftX,  dimY2 - 5, leftX,  dimY2 + 5);
+  _wireSeg(g, rightX, dimY2 - 5, rightX, dimY2 + 5);
+  _wireSeg(g, leftX + 8, dimY2, rightX - 8, dimY2);
+  _arrowhead(g, leftX,  dimY2, -1, 0, 6, 3);
+  _arrowhead(g, rightX, dimY2, +1, 0, 6, 3);
+  _circuitLabel(g, midX, dimY2 + 15, 'l\u00a0=\u00a0' + inputs.lineLengthKm.toFixed(1) + '\u00a0km', 'middle');
+
+  // ── Labels ────────────────────────────────────────────────────────────────
+  _circuitLabel(g, midX,      topY - 24, 'z(x)\u00b7dx', 'middle');
+  _circuitLabel(g, boxR + 12, (topY + botY) / 2, 'y\u00b7dx', 'start');
+  _circuitLabel(g, boxL + 6,  topY + 24, 'V+dV', 'start');
+  _circuitLabel(g, boxR - 6,  topY + 24, 'V',    'end');
+
+  // ── Voltage arrows ────────────────────────────────────────────────────────
+  const Vr_kV = inputs.nomSyskV / Math.sqrt(3);
+  _drawVoltageArrow(g, leftX,  topY, botY,
+    'VS\u00a0=\u00a0' + _fmtPhasor(outputs.Vs_phase_kV.re, outputs.Vs_phase_kV.im, 'kV'), 'left');
+  _drawVoltageArrow(g, rightX, topY, botY,
+    'VR\u00a0=\u00a0' + Vr_kV.toFixed(3) + '\u2220+0.0\u00b0\u00a0kV', 'right');
+
+  // ── IS / IR current arrows ────────────────────────────────────────────────
+  const arrowY = topY - 10;
+  const IS = _IS_kA(outputs);
+  const IR = _computeIR(inputs, outputs);
+  _drawCurrentArrow(g, leftX + 4, leftX + 44, arrowY,
+    'IS\u00a0=\u00a0' + _fmtPhasor(IS.re, IS.im, 'kA', 3));
+  _drawCurrentArrow(g, rightX - 48, rightX - 4, arrowY,
     'IR\u00a0=\u00a0' + _fmtPhasor(IR.re, IR.im, 'kA', 3));
 }
 

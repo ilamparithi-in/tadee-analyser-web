@@ -673,6 +673,11 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
   -webkit-user-select: none; user-select: none;
   box-sizing: border-box;
 }
+.dpane-btn-text {
+  width: auto !important;
+  padding: 0 4px;
+  font-size: 10px;
+}
 .dpane-btn:active,
 .dpane-btn[data-active="true"] {
   box-shadow: inset -1px -1px #fff, inset 1px 1px #0a0a0a,
