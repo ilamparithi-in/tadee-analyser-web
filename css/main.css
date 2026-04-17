@@ -481,9 +481,42 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
 #sb-time  { flex: 0 0 90px; text-align: center; }
 #sb-status { flex: 0 0 100px; text-align: center; }
 
-/* Canvas inside geometry panel */
-#canvas-container { flex: 1; overflow: hidden; margin: 2px; }
-#canvas-container canvas { display: block; }
+/* Diagram pane container */
+#canvas-container { flex: 1; overflow: hidden; margin: 2px; display: flex; }
+
+/* ─── Diagram grid (3 SVG panes) ──────────────────────────────────────────── */
+.diagram-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  grid-template-rows: 1fr 1fr;
+  overflow: hidden;
+  min-height: 0;
+}
+.dpane {
+  display: flex; flex-direction: column;
+  border-right: 1px solid #808080;
+  border-bottom: 1px solid #808080;
+  overflow: hidden;
+  min-height: 0; min-width: 0;
+}
+.dpane-arrangement { grid-column: 1; grid-row: 1; }
+.dpane-circuit     { grid-column: 2; grid-row: 1 / 3; border-right: none; }
+.dpane-phasor      { grid-column: 1; grid-row: 2; border-bottom: none; }
+.dpane-title {
+  flex: 0 0 auto;
+  background: #d4d0c8;
+  padding: 1px 5px;
+  font-size: 10px; font-weight: bold;
+  border-bottom: 1px solid #808080;
+}
+.dpane-body {
+  flex: 1; overflow: hidden;
+  display: flex;
+  min-height: 0; min-width: 0;
+  padding: 4px; box-sizing: border-box;
+}
+.dpane-body > svg { flex: 1; min-width: 0; min-height: 0; }
 /* Results panel heading */
 #results-heading {
   flex: 0 0 auto; margin: 2px 2px 0 2px; padding: 1px 6px;

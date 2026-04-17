@@ -110,7 +110,8 @@ function _print() {
   <title>Transmission Line — Calculations</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css"/>
   <style>
-    body { font-family: serif; font-size: 13pt; max-width: 900px; margin: 2cm auto; color: #000; }
+    @page { margin: 0; }
+    body { font-family: serif; font-size: 13pt; max-width: 900px; margin: 0 auto; padding: 0.8cm 1.1cm; color: #000; }
     h2 { font-size: 18pt; border-bottom: 1px solid #000; padding-bottom: 4px; }
     h3 { font-size: 14pt; margin-top: 1.5em; }
     h4 { font-size: 12pt; margin-top: 1em; }

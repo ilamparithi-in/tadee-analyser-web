@@ -9,7 +9,6 @@
  *                                 with the addWindow API, not used directly here)
  */
 
-import * as THREE           from 'three';
 import { initMenuBar }      from '../components/menuSystem.js';
 import { initPanelLayout }  from '../components/panels.js';
 import { initResultsGrid }  from '../components/grid.js';
@@ -17,7 +16,8 @@ import { initTooltips }     from '../components/tooltip.js';
 import { initUnitInputs, getBaseValue } from '../components/unitInput.js';
 import { lineCalculations } from '../../tadee.js';
 import { showError }        from '../components/errorDialog.js';
-import { showBalloon, hideBalloon } from '../components/balloon.js';
+import { showBalloon, hideBalloon }    from '../components/balloon.js';
+import { initDiagramContainer, updateDiagrams } from '../components/diagrams.js';
 
 export function initNotepadWindow(viewport) {
   const win = document.getElementById('win-notepad');
@@ -109,9 +109,9 @@ export function initNotepadWindow(viewport) {
   // Status bar hover hints
   _initStatusBarHints(win);
 
-  // Three.js geometry viewer
+  // Diagram panes
   const container = win.querySelector('#canvas-container');
-  if (container) _initThreeJs(container);
+  if (container) initDiagramContainer(container);
 }
 
 let _gridApi = null;
@@ -268,13 +268,14 @@ function _exportPdf(win) {
          url('https://unpkg.com/98.css@0.1.21/dist/ms_sans_serif_bold.woff')  format('woff');
     font-weight: bold;
   }
-  @page { size: A4; margin: 2cm; }
+  @page { size: A4; margin: 0; }
   * { box-sizing: border-box; }
   body {
     font-family: 'Pixelated MS Sans Serif', 'MS Sans Serif', sans-serif;
     font-size: 11pt;
     color: #000;
     margin: 0;
+    padding: 0.8cm 1.1cm;
     -webkit-font-smoothing: none;
     font-smooth: never;
   }
@@ -755,6 +756,8 @@ function _compute(win) {
     const menuPdf = win.querySelector('#menu-save-as-pdf');
     if (menuPdf) menuPdf.disabled = false;
 
+    updateDiagrams(params, _lastResults.outputs);
+
     const elapsed = (performance.now() - t0).toFixed(1);
     if (sbTime)   sbTime.textContent   = `Time: ${elapsed} ms`;
     if (sbStatus) sbStatus.textContent = 'Done';
@@ -764,41 +767,4 @@ function _compute(win) {
   }
 }
 
-function _initThreeJs(container) {
-  const scene  = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
-  camera.position.z = 2;
 
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.domElement.style.display = 'block';
-  container.appendChild(renderer.domElement);
-
-  const cube = new THREE.Mesh(
-    new THREE.BoxGeometry(),
-    new THREE.MeshNormalMaterial()
-  );
-  scene.add(cube);
-
-  let lastW = 0, lastH = 0;
-
-  function resize() {
-    const w = container.clientWidth;
-    const h = container.clientHeight;
-    if (w > 0 && h > 0 && (w !== lastW || h !== lastH)) {
-      lastW = w; lastH = h;
-      renderer.setSize(w, h, false);
-      camera.aspect = w / h;
-      camera.updateProjectionMatrix();
-    }
-  }
-
-  resize();
-  new ResizeObserver(resize).observe(container);
-
-  (function animate() {
-    requestAnimationFrame(animate);
-    cube.rotation.x += 0.01;
-    cube.rotation.y += 0.01;
-    renderer.render(scene, camera);
-  })();
-}
