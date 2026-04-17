@@ -74,21 +74,8 @@ function _hide() {
 
 function _playChord() {
   try {
-    const ctx  = new (window.AudioContext || window.webkitAudioContext)();
-    const now  = ctx.currentTime;
-    // C4 261.63 Hz, E4 329.63 Hz, G4 392.00 Hz
-    [261.63, 329.63, 392.00].forEach(freq => {
-      const osc  = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type           = 'sine';
-      osc.frequency.value = freq;
-      gain.gain.setValueAtTime(0.18, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 1.3);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(now);
-      osc.stop(now + 1.3);
-    });
+    const audio = new Audio('media/chord.mp3');
+    audio.play();
   } catch {
     // Audio not available — fail silently
   }

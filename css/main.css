@@ -217,6 +217,168 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
   animation: ctx-slide-in 100ms steps(8, end) both;
 }
 
+/* ─── Balloon tooltip (XP-style validation bubble) ────────────────────────── */
+/*
+ * Pixelated rounded corners via double-clip-path:
+ *   .balloon-shell  = clip-path octagon filled black → acts as 1 px border
+ *   .balloon-box    = same clip-path on the inner fill → content area
+ * CSS variable  --balloon-bg  is set on .balloon[data-type] and inherited by
+ * both the box and the tail's fill pseudo-element.
+ *
+ * Tail: two overlapping border-trick triangles (::before border, ::after fill)
+ * Default: tail below shell, pointing DOWN  (balloon above anchor)
+ * .balloon--below: tail above shell, pointing UP  (balloon below anchor)
+ */
+
+/* Polygon shared by both shell and box — 4 px chamfered corners */
+:root {
+  --bln-polygon: polygon(
+    4px 0%, calc(100% - 4px) 0%,
+    100% 4px, 100% calc(100% - 4px),
+    calc(100% - 4px) 100%, 4px 100%,
+    0% calc(100% - 4px), 0% 4px
+  );
+}
+
+/* All types share the same neutral cream background — type is shown via the icon */
+.balloon { --balloon-bg: #fffef0; }
+
+/* Pixelated icon badge — 14×14 octagon, colour/letter determined by type */
+.balloon-icon-wrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  clip-path: var(--bln-polygon);
+  font-size: 10px;
+  font-weight: bold;
+  font-style: normal;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.balloon[data-type="info"]    .balloon-icon-wrapper { background: #1a5fcc; color: #fff; font-style: italic; }
+.balloon[data-type="warning"] .balloon-icon-wrapper { background: #d4880a; color: #fff; }
+.balloon[data-type="error"]   .balloon-icon-wrapper { background: #cc1a1a; color: #fff; font-style: normal; }
+
+.balloon {
+  position: fixed;
+  z-index: 99999;
+  pointer-events: auto;
+  -webkit-user-select: none;
+  user-select: none;
+  font-family: 'Pixelated MS Sans Serif', 'MS Sans Serif', sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  opacity: 1;
+  transition: opacity 150ms linear;
+}
+
+/* Balloon box — 1 px solid border + 4 px radius gives pixelated rounded corners
+ * without clip-path, so the tail triangle can connect to the border seamlessly.
+ * z-index:1 ensures the box paints over the top 1 px of the tail that overlaps
+ * behind it, hiding the raw triangle edge and making it look attached. */
+.balloon-box {
+  background: var(--balloon-bg, #fffef0);
+  border: 1px solid #000;
+  border-radius: 4px;
+  padding: 6px;
+  min-width: 160px;
+  max-width: 260px;
+  box-sizing: border-box;
+  position: relative;
+  z-index: 0;
+}
+
+/* Fade-in only — no movement. Applied to the whole .balloon so box and tail
+ * are a single animated unit. */
+@keyframes balloon-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.balloon.balloon-animate {
+  animation: balloon-fade 120ms steps(4, end) both;
+}
+
+/* Header: icon + title [+ close] */
+.balloon-hdr {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 2px;
+}
+/* .balloon-icon-wrapper is styled above with per-type rules */
+.balloon-title {
+  flex: 1;
+  font-size: 11px;
+}
+.balloon-x {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  min-width: unset !important;
+  padding: 0;
+  font-size: 9px;
+  line-height: 1;
+  cursor: default;
+  flex-shrink: 0;
+}
+.balloon-msg {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #000;
+}
+
+/* ── Tail: single rotated square — two borders only, no base line ─────────── */
+/*
+ * A 12×12 px square rotated 45° → a diamond. Only two CSS border sides kept
+ * so the base (where diamond meets box) has NO border line — box + tail are
+ * visually one contiguous shape.
+ *
+ * Default (pointing DOWN — balloon above anchor):
+ *   Visible: border-bottom (lower-right) + border-left (lower-left diamond side)
+ *   border-top + border-right: none  (inside/behind the box)
+ *   z-index:1 on tail → fill paints over box bottom border → no base line
+ *
+ * .balloon--below (pointing UP — balloon below anchor):
+ *   Visible: border-top + border-right (upper two diamond sides)
+ *   border-bottom + border-left: none
+ *   z-index flips: box z:1, tail z:0 → box background covers open tail top
+ */
+.balloon-tail {
+  width:  12px;
+  height: 12px;
+  flex-shrink: 0;
+  margin-left: 14px;
+  margin-top: -7px;           /* pull up: top half overlaps box bottom */
+  background: var(--balloon-bg, #fffef0);
+  border: 1px solid #000;
+  border-top:   none;         /* hide upper diamond sides (inside the box) */
+  border-right: none;
+  transform: rotate(45deg);
+  transform-origin: center;
+  position: relative;
+  z-index: 1;                 /* above box → fill erases box bottom border at junction */
+}
+
+/* Pointing UP — tail before box in DOM, tip toward anchor above */
+.balloon--below .balloon-tail {
+  margin-top:    0;
+  margin-bottom: -7px;        /* pull down: bottom half overlaps box top */
+  border: 1px solid #000;
+  border-bottom: none;        /* hide lower diamond sides (inside the box) */
+  border-left:   none;
+  z-index: 0;                 /* below box → box background covers open tail bottom */
+}
+.balloon--below .balloon-box {
+  z-index: 1;                 /* above tail → covers the open side at junction */
+}
+
 /* Unit input row: number input + unit select side by side */
 .unit-input-row { display: flex; gap: 2px; align-items: center; }
 /* 98.css .field-row-stacked *+* adds margin-top to every adjacent sibling, including

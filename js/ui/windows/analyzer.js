@@ -17,6 +17,7 @@ import { initTooltips }     from '../components/tooltip.js';
 import { initUnitInputs, getBaseValue } from '../components/unitInput.js';
 import { lineCalculations } from '../../tadee.js';
 import { showError }        from '../components/errorDialog.js';
+import { showBalloon, hideBalloon } from '../components/balloon.js';
 
 export function initNotepadWindow(viewport) {
   const win = document.getElementById('win-notepad');
@@ -99,6 +100,12 @@ export function initNotepadWindow(viewport) {
   // Spacing toggle (symmetric vs unsymmetric)
   _initSpacingToggle(win);
 
+  // Model suggestion balloons for line-length + voltage
+  _initModelHints(win);
+
+  // Sub-conductor spacing accuracy warning
+  _initSubSpacingWarning(win);
+
   // Status bar hover hints
   _initStatusBarHints(win);
 
@@ -171,6 +178,7 @@ function _collectInputs(win) {
 }
 
 function _applyInputs(win, data) {
+  let applied = 0;
   INPUT_FIELDS.forEach(([id, hasUnit]) => {
     const key = INPUT_CONTRACT[id] ?? id;
     // Accept contract key first, fall back to legacy html-id key
@@ -182,16 +190,17 @@ function _applyInputs(win, data) {
     }
     if (val != null) {
       const el = win.querySelector('#' + id);
-      if (el) el.value = val;
+      if (el) { el.value = val; applied++; }
     }
   });
   Object.entries(SELECT_CONTRACT).forEach(([id, key]) => {
     const val = data[key] ?? data[id];
     if (val != null) {
       const el = win.querySelector('#' + id);
-      if (el) el.value = val;
+      if (el) { el.value = val; applied++; }
     }
   });
+  return applied;
 }
 
 function _saveInputs(win) {
@@ -231,12 +240,14 @@ function _exportPdf(win) {
 
   const fc = (c) => {
     if (typeof c === 'number') return c.toFixed(6);
-    const s = c.im < 0 ? ' − ' : ' + ';
-    return `${c.re.toFixed(6)}${s}j${Math.abs(c.im).toFixed(6)}`;
+    const r = Math.sqrt(c.re * c.re + c.im * c.im);
+    const theta = Math.atan2(c.im, c.re) * (180 / Math.PI);
+    return `${r.toFixed(6)} ∠ ${theta.toFixed(6)}°`;
   };
   const fcObj = (c) => {
-    const s = c.im < 0 ? ' − ' : ' + ';
-    return `${c.re.toFixed(6)}${s}j${Math.abs(c.im).toFixed(6)}`;
+    const r = Math.sqrt(c.re * c.re + c.im * c.im);
+    const theta = Math.atan2(c.im, c.re) * (180 / Math.PI);
+    return `${r.toFixed(6)} ∠ ${theta.toFixed(6)}°`;
   };
 
   const html = `<!DOCTYPE html>
@@ -366,15 +377,20 @@ function _loadInputs(win) {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = e => {
+      let data;
       try {
-        const data = JSON.parse(e.target.result);
-        _applyInputs(win, data);
-        const sb = win.querySelector('#sb-status');
-        if (sb) sb.textContent = 'Loaded';
+        data = JSON.parse(e.target.result);
       } catch {
-        const sb = win.querySelector('#sb-status');
-        if (sb) sb.textContent = 'Load failed: invalid JSON';
+        showError('Invalid file format. The selected file is not a valid JSON file.');
+        return;
       }
+      const applied = _applyInputs(win, data);
+      if (applied === 0) {
+        showError('Invalid file format. The selected file does not contain recognised input parameters.');
+        return;
+      }
+      const sb = win.querySelector('#sb-status');
+      if (sb) sb.textContent = 'Loaded';
     };
     reader.readAsText(file);
   });
@@ -427,6 +443,118 @@ function _initSpacingToggle(win) {
   }
   sel?.addEventListener('change', _update);
   _update();
+}
+
+// ─── Model suggestion balloons ───────────────────────────────────────────────
+
+function _modelHintFor(km, kv) {
+  // Determine suggested model from value (one of km or kv is provided).
+  // Returns { title, message } for a 'info' balloon, or null if value ≤ 0.
+  let cat;
+  const v = km ?? kv;
+  if (v <= 0 || isNaN(v)) return null;
+
+  if (km !== null) {
+    cat = km < 80 ? 0 : km <= 250 ? 1 : 2;
+  } else {
+    cat = kv < 20 ? 0 : kv <= 150 ? 1 : 2;
+  }
+
+  const labels = [
+    ['Short line',                  '< 80 km   /   < 20 kV'],
+    ['Medium line (Nominal \u03c0)', '80 \u2013 250 km   /   20 \u2013 150 kV'],
+    ['Long line (Distributed)',     '> 250 km   /   > 150 kV'],
+  ];
+  return {
+    title:   labels[cat][0] + ' suggested',
+    message: labels[cat][1],
+  };
+}
+
+function _initModelHints(win) {
+  const lenInput  = win.querySelector('#line-length');
+  const lenSelect = win.querySelector('select[data-unit-for="line-length"]');
+  const vltInput  = win.querySelector('#voltage');
+  const vltSelect = win.querySelector('select[data-unit-for="voltage"]');
+  const modelSel  = win.querySelector('#line-model');
+
+  function _selectedCat() {
+    const v = modelSel ? modelSel.selectedIndex : -1;
+    return v; // 0=Short, 1=Nominal π, 2=Distributed
+  }
+
+  function _check(anchorEl, km, kv) {
+    const hint = _modelHintFor(km, kv);
+    if (!hint) { hideBalloon(); return; }
+    const cat = km !== null
+      ? (km < 80 ? 0 : km <= 250 ? 1 : 2)
+      : (kv < 20 ? 0 : kv <= 150 ? 1 : 2);
+    if (cat === _selectedCat()) { hideBalloon(); return; }
+    showBalloon(anchorEl, { ...hint, type: 'info' });
+  }
+
+  function onLen() { _check(lenInput, getBaseValue('line-length', win), null); }
+  function onVlt() { _check(vltInput, null, getBaseValue('voltage', win)); }
+
+  lenInput?.addEventListener('input',   onLen);
+  lenSelect?.addEventListener('change', onLen);
+  vltInput?.addEventListener('input',   onVlt);
+  vltSelect?.addEventListener('change', onVlt);
+  // Also re-evaluate when model selection changes
+  modelSel?.addEventListener('change', () => {
+    onLen();
+    onVlt();
+  });
+}
+
+// ─── Sub-conductor spacing warning ─────────────────────────────────────────
+
+function _initSubSpacingWarning(win) {
+  const subInput  = win.querySelector('#sub-spacing');
+  const subSelect = win.querySelector('select[data-unit-for="sub-spacing"]');
+  const sysType   = win.querySelector('#system-type');
+
+  function _check() {
+    const sc = getBaseValue('sub-spacing', win);
+    if (isNaN(sc) || sc <= 0) { hideBalloon(); return; }
+
+    const isUnsym = sysType?.value?.toLowerCase().includes('unsym');
+    let minPhase;
+    if (isUnsym) {
+      const dab = getBaseValue('dab', win);
+      const dbc = getBaseValue('dbc', win);
+      const dca = getBaseValue('dca', win);
+      const vals = [dab, dbc, dca].filter(v => !isNaN(v) && v > 0);
+      minPhase = vals.length ? Math.min(...vals) : NaN;
+    } else {
+      minPhase = getBaseValue('phase-spacing', win);
+    }
+
+    if (isNaN(minPhase) || minPhase <= 0) { hideBalloon(); return; }
+
+    if (sc > minPhase / 10) {
+      showBalloon(subInput, {
+        title: 'Reduced accuracy',
+        message: 'Sub-conductor spacing exceeds 1/10 of phase spacing. ' +
+                 'The mutual GMD approximation becomes less accurate.',
+        type: 'warning',
+      });
+    } else {
+      hideBalloon();
+    }
+  }
+
+  subInput?.addEventListener('input',   _check);
+  subSelect?.addEventListener('change', _check);
+  win.querySelector('#phase-spacing')?.addEventListener('input',   _check);
+  win.querySelector('select[data-unit-for="phase-spacing"]')?.addEventListener('change', _check);
+  win.querySelector('#dab')?.addEventListener('input',   _check);
+  win.querySelector('select[data-unit-for="dab"]')?.addEventListener('change', _check);
+  win.querySelector('#dbc')?.addEventListener('input',   _check);
+  win.querySelector('select[data-unit-for="dbc"]')?.addEventListener('change', _check);
+  win.querySelector('#dca')?.addEventListener('input',   _check);
+  win.querySelector('select[data-unit-for="dca"]')?.addEventListener('change', _check);
+  sysType?.addEventListener('change', _check);
 }
 
 // ─── Status bar hover hints ──────────────────────────────────────────────────
@@ -509,8 +637,9 @@ function _normaliseModel(raw) {
 
 function _fmtComplex(c) {
   if (typeof c === 'number') return c.toFixed(4);
-  const sign = c.im < 0 ? ' - ' : ' + ';
-  return `${c.re.toFixed(4)}${sign}j${Math.abs(c.im).toFixed(4)}`;
+  const r = Math.sqrt(c.re * c.re + c.im * c.im);
+  const theta = Math.atan2(c.im, c.re) * (180 / Math.PI);
+  return `${r.toFixed(4)} ∠ ${theta.toFixed(4)}°`;
 }
 
 function _compute(win) {
