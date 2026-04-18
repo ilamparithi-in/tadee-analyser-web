@@ -72,6 +72,17 @@ function _openOrRaise(viewport) {
     content:     _buildContent(),
   }, viewport);
 
+  _win.id = 'win-batch';
+
+  // Clear singleton ref when the window is closed so it can be re-opened
+  _win._closeGuard = (proceed) => {
+    _win     = null;
+    _results = [];
+    _idx     = 0;
+    _parsedEntries = null;
+    proceed();
+  };
+
   // Position: offset from analyser window
   const analyser = document.getElementById('win-analyser');
   if (analyser) {

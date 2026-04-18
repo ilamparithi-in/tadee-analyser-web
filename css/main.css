@@ -271,6 +271,10 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
 /* Icon in title bar: anchor title text left-aligned next to icon */
 #win-analyser .title-bar img { margin-right: 3px; }
 #win-analyser .title-bar-text { flex: 1; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+
+/* Batch window: flex column so window-body fills remaining height */
+#win-batch { display: flex; flex-direction: column; }
+#win-batch > .window-body { flex: 1; min-height: 0; overflow: hidden; padding: 0; }
 .field-row { margin-bottom: 6px; }
 
 /* ─── Menu bar ────────────────────────────────────────────────────────────── */
