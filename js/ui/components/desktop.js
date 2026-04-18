@@ -11,7 +11,7 @@ const ICONS = [
   },
   {
     id:    'icon-tla',
-    label: 'Transmission\nLine Analyzer',
+    label: 'Transmission\nLine Analyser',
     img:   'media/icons/network_drive-5.png',
     action() {
       const win = document.getElementById('win-analyser');

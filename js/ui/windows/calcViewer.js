@@ -25,7 +25,7 @@ async function _open() {
   const win = document.getElementById('win-calc-viewer');
   if (!win) return;
 
-  // Responsive size, centered over the analyzer window
+  // Responsive size, centered over the analyser window
   const vw = window.innerWidth;
   const vh = window.innerHeight;
   const isMobile = vw < 700;
@@ -34,11 +34,11 @@ async function _open() {
   win.style.width  = w + 'px';
   win.style.height = h + 'px';
 
-  const analyzer = document.getElementById('win-analyser');
+  const analyser = document.getElementById('win-analyser');
   let cx, cy;
-  if (analyzer) {
-    cx = analyzer.offsetLeft + analyzer.offsetWidth  / 2;
-    cy = analyzer.offsetTop  + analyzer.offsetHeight / 2;
+  if (analyser) {
+    cx = analyser.offsetLeft + analyser.offsetWidth  / 2;
+    cy = analyser.offsetTop  + analyser.offsetHeight / 2;
   } else {
     cx = vw / 2;
     cy = vh / 2;

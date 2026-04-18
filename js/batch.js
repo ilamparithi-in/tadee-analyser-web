@@ -1,5 +1,5 @@
 /**
- * batch.js — Pure computation core shared by the main Analyzer and Batch Mode.
+ * batch.js — Pure computation core shared by the main Analyser and Batch Mode.
  *
  * Exports:
  *   computeFromParams(params)  → { inputs, outputs, rows }

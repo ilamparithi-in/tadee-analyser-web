@@ -1,5 +1,5 @@
 /**
- * analyzer.js — Analyzer window content initialiser.
+ * analyser.js — Analyser window content initialiser.
  *
  * The analyser window element is statically authored in index.html with
  * id="win-analyser". This module initialises its interactive sub-components:

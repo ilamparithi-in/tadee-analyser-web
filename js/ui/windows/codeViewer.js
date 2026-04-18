@@ -13,7 +13,7 @@ const SOURCE_PATH = 'js/tadee.js';
 
 export function initCodeViewerWindow(/* viewport */) {
   // Content is lazy-loaded the first time the window is opened.
-  // The btn-view-code button in the analyzer toolbar triggers open.
+  // The btn-view-code button in the analyser toolbar triggers open.
   const btn = document.getElementById('btn-view-code');
   if (btn) {
     btn.addEventListener('click', () => _open());
@@ -28,7 +28,7 @@ async function _open() {
   const win = document.getElementById('win-code-viewer');
   if (!win) return;
 
-  // Set a viewport-responsive size (same pattern as the analyzer window)
+  // Set a viewport-responsive size (same pattern as the analyser window)
   const vw = window.innerWidth;
   const vh = window.innerHeight;
   const isMobile = vw < 700;
@@ -37,12 +37,12 @@ async function _open() {
   win.style.width  = w + 'px';
   win.style.height = h + 'px';
 
-  // Center over the analyzer window if it exists, otherwise center in viewport
-  const analyzer = document.getElementById('win-analyser');
+  // Center over the analyser window if it exists, otherwise center in viewport
+  const analyser = document.getElementById('win-analyser');
   let cx, cy;
-  if (analyzer) {
-    cx = analyzer.offsetLeft + analyzer.offsetWidth  / 2;
-    cy = analyzer.offsetTop  + analyzer.offsetHeight / 2;
+  if (analyser) {
+    cx = analyser.offsetLeft + analyser.offsetWidth  / 2;
+    cy = analyser.offsetTop  + analyser.offsetHeight / 2;
   } else {
     cx = vw / 2;
     cy = vh / 2;

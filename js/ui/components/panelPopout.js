@@ -46,7 +46,7 @@ const PANEL_CONFIGS = [
 ];
 
 /**
- * Initialise pop-out buttons for all three panels in the analyzer window.
+ * Initialise pop-out buttons for all three panels in the analyser window.
  * @param {HTMLElement} win      — #win-analyser element
  * @param {HTMLElement} viewport — #viewport element (WM host)
  */

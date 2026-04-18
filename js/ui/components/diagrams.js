@@ -1,5 +1,5 @@
 /**
- * diagrams.js — SVG diagram panes for the Analyzer window.
+ * diagrams.js — SVG diagram panes for the Analyser window.
  *
  * Pane 1: Bundled conductor arrangement         ← implemented
  * Pane 2: Line model circuit diagram            [placeholder]

@@ -1,6 +1,6 @@
 # tadee.js Refactoring Log
 
-All renames align `tadee.js` (and the consuming `analyzer.js`) to the
+All renames align `tadee.js` (and the consuming `analyser.js`) to the
 parameter names specified in the project brief.
 
 ---
@@ -89,7 +89,7 @@ All string comparisons in `ABCDparams()` changed to numeric:
 
 ---
 
-## Cascade changes in `analyzer.js`
+## Cascade changes in `analyser.js`
 
 | Change | Detail |
 |---|---|
