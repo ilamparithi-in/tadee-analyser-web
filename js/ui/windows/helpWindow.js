@@ -184,59 +184,12 @@ const TOPICS = {
       resizable grid. Drag the splitter bars between panes to resize them. All three diagrams
       update each time you press <strong>Compute</strong>.</p>
       <p>Each subpane supports <strong>scroll-wheel zoom</strong> and
-      <strong>click-and-drag pan</strong>. The dividers between panes can be dragged to
-      resize the grid.</p>
-
-      <h4>Conductor Arrangement</h4>
-      <p>A cross-section view showing the positions of the phase conductors and, where
-      applicable, the sub-conductors within each bundle. GMD and GMR annotations are
-      drawn on the diagram.</p>
-      <p><strong>Controls in the title bar:</strong></p>
+      <strong>click-and-drag pan</strong>.</p>
       <ul>
-        <li><strong>&#x2316; (Reset zoom)</strong> — Resets pan and zoom back to the
-        default fit.</li>
-        <li><strong>&#x25A1; (Maximize / Restore)</strong> — Expands this pane to fill
-        the entire Canvas area, hiding the other two panes. Click again to restore the
-        grid layout.</li>
+        <li><a href="#" data-topic="canvas-arrangement">Conductor Arrangement</a></li>
+        <li><a href="#" data-topic="canvas-circuit">Circuit Diagram</a></li>
+        <li><a href="#" data-topic="canvas-phasor">Phasor Diagram</a></li>
       </ul>
-      <p><strong>Bottom bar controls:</strong></p>
-      <ul>
-        <li><strong>To scale</strong> checkbox — When checked, conductors and spacings are
-        drawn proportional to their physical dimensions. When unchecked (default), conductors
-        are drawn at a fixed size so they are always clearly visible regardless of the actual
-        dimensions.</li>
-        <li><strong>Radius</strong> — Displays the computed sub-conductor radius (m).</li>
-        <li><strong>Scale</strong> — Displays the current drawing scale (px/m) so you can
-        judge the relationship between screen pixels and physical metres.</li>
-      </ul>
-
-      <h4>Circuit Diagram</h4>
-      <p>A schematic of the equivalent circuit for the selected line model. The pane title
-      updates to show the active model name.</p>
-      <p><strong>Controls in the title bar:</strong></p>
-      <ul>
-        <li><strong>&#x2316; (Reset zoom)</strong> — Resets pan and zoom.</li>
-        <li><strong>&#x394; / &#x2261; (Toggle view)</strong> — Visible only when the
-        <em>Distributed</em> model is selected. Switches the circuit diagram between the
-        <strong>ladder model</strong> view (cascaded &pi;-sections approximating the
-        distributed line) and the <strong>d/dx differential</strong> view (showing the
-        infinitesimal element equations). The button icon changes to indicate the current
-        mode: &Delta; = currently showing ladder, &#x2261; = currently showing d/dx.</li>
-        <li><strong>&#x25A1; (Maximize / Restore)</strong> — Fills the Canvas area with
-        this pane.</li>
-      </ul>
-
-      <h4>Phasor Diagram</h4>
-      <p>A vector diagram showing the sending-end and receiving-end voltage and current
-      phasors (Vs, Vr, Is, Ir) at their correct magnitudes and phase angles. Useful for
-      visualising voltage regulation and the phase shift introduced by the line.</p>
-      <p><strong>Controls in the title bar:</strong></p>
-      <ul>
-        <li><strong>&#x2316; (Reset zoom)</strong> — Resets pan and zoom.</li>
-        <li><strong>&#x25A1; (Maximize / Restore)</strong> — Fills the Canvas area with
-        this pane.</li>
-      </ul>
-
       <h4>Showing and Hiding the Canvas Pane</h4>
       <p>The entire Canvas pane (all three diagrams) can be toggled via
       <strong>View &rarr; Canvas pane &rarr; Whole pane</strong>. Individual diagram
@@ -244,6 +197,69 @@ const TOPICS = {
       <p>The Canvas pane itself can be <strong>popped out</strong> into its own floating
       window using the pop-out button (&#x2197;) in the Canvas panel header. The same
       applies to the Input and Results panes.</p>
+    `,
+  },
+  'canvas-arrangement': {
+    label: 'Conductor Arrangement',
+    content: `
+      <h3>Conductor Arrangement</h3>
+      <p>A cross-section view showing the positions of the phase conductors and, where
+      applicable, the sub-conductors within each bundle. GMD and GMR annotations are
+      drawn on the diagram.</p>
+      <p>Supports <strong>scroll-wheel zoom</strong> and <strong>click-and-drag pan</strong>.</p>
+      <h4>Title Bar Controls</h4>
+      <ul>
+        <li><strong>&#x2316; (Reset zoom)</strong> — Resets pan and zoom back to the
+        default fit.</li>
+        <li><strong>&#x25A1; (Maximize / Restore)</strong> — Expands this subpane to fill
+        the entire Canvas area, hiding the other two. Click again to restore the grid.</li>
+      </ul>
+      <h4>Bottom Bar</h4>
+      <ul>
+        <li><strong>To scale</strong> checkbox — When checked, conductors and spacings are
+        drawn proportional to their physical dimensions. When unchecked (default), conductors
+        are drawn at a fixed size so they are always clearly visible regardless of actual
+        dimensions.</li>
+        <li><strong>Radius</strong> — Displays the computed sub-conductor radius (m).</li>
+        <li><strong>Scale</strong> — Displays the current drawing scale (pixels/m).</li>
+      </ul>
+    `,
+  },
+  'canvas-circuit': {
+    label: 'Circuit Diagram',
+    content: `
+      <h3>Circuit Diagram</h3>
+      <p>A schematic of the equivalent circuit for the selected line model. The subpane
+      title updates to show the active model name.</p>
+      <p>Supports <strong>scroll-wheel zoom</strong> and <strong>click-and-drag pan</strong>.</p>
+      <h4>Title Bar Controls</h4>
+      <ul>
+        <li><strong>&#x2316; (Reset zoom)</strong> — Resets pan and zoom.</li>
+        <li><strong>&Delta; / &#x2261; (Toggle view)</strong> — Visible only when the
+        <em>Distributed</em> model is selected. Switches between the
+        <strong>ladder model</strong> view (cascaded &pi;-sections approximating the
+        distributed line) and the <strong>d/dx differential</strong> view (showing the
+        infinitesimal element equations). Icon: &Delta; = currently showing ladder;
+        &#x2261; = currently showing d/dx.</li>
+        <li><strong>&#x25A1; (Maximize / Restore)</strong> — Fills the Canvas area with
+        this subpane.</li>
+      </ul>
+    `,
+  },
+  'canvas-phasor': {
+    label: 'Phasor Diagram',
+    content: `
+      <h3>Phasor Diagram</h3>
+      <p>A vector diagram showing the sending-end and receiving-end voltage and current
+      phasors (Vs, Vr, Is, Ir) at their correct magnitudes and phase angles. Useful for
+      visualising voltage regulation and the phase shift introduced by the line.</p>
+      <p>Supports <strong>scroll-wheel zoom</strong> and <strong>click-and-drag pan</strong>.</p>
+      <h4>Title Bar Controls</h4>
+      <ul>
+        <li><strong>&#x2316; (Reset zoom)</strong> — Resets pan and zoom.</li>
+        <li><strong>&#x25A1; (Maximize / Restore)</strong> — Fills the Canvas area with
+        this subpane.</li>
+      </ul>
     `,
   },
   'file-operations': {
@@ -258,8 +274,7 @@ const TOPICS = {
       <p>Opens a file picker. The TADEE Analyser accepts three file types:</p>
       <ul>
         <li><strong>Input JSON</strong> — loaded directly into the Input panel.</li>
-        <li><strong>Output (results) JSON</strong> — results re-displayed and inputs
-        restored.</li>
+        <li><strong>Output (results) JSON</strong> — inputs restored and results recomputed.</li>
         <li><strong>Batch JSON</strong> — automatically loaded into Batch Mode.</li>
       </ul>
       <h4>Export Result As&hellip;</h4>
@@ -301,31 +316,51 @@ const TOPICS = {
     label: 'Menu Reference',
     content: `
       <h3>Menu Reference</h3>
+
       <h4>File</h4>
       <ul>
-        <li><strong>Save</strong> — Save current inputs as a JSON file.</li>
-        <li><strong>Open</strong> — Open an input, output, or batch JSON file.</li>
-        <li><strong>Export result as&hellip;</strong> — Export results as PDF, JSON, TXT, or
-        Markdown.</li>
+        <li><strong>New</strong> — Clears all input fields back to their defaults.</li>
+        <li><strong>Open&hellip;</strong> — Opens a file picker to load an input JSON, output JSON, or batch JSON file.</li>
+        <li><strong>Save</strong> — Saves the current input parameters as a JSON file.</li>
+        <li><strong>Export result as&hellip;</strong> — Exports the most recent computed result as PDF, JSON, TXT, or Markdown.</li>
+        <li><strong>Print&hellip;</strong> — Prints the current results.</li>
+        <li><strong>Exit</strong> — Closes the application.</li>
       </ul>
+
+      <h4>Edit</h4>
+      <ul>
+        <li><strong>Preferences</strong> — Opens the Preferences window.</li>
+      </ul>
+
       <h4>View</h4>
       <ul>
-        <li><strong>Canvas pane</strong> — Toggle individual diagrams on or off.</li>
-        <li><strong>Popout panels</strong> — Detach panels into separate floating windows.</li>
+        <li><strong>Input pane</strong> — Show or hide the Input panel.</li>
+        <li><strong>Canvas pane</strong> — Show or hide the entire Canvas panel, or toggle individual diagram subpanes (Arrangement, Phasor, Circuit) from the submenu.</li>
+        <li><strong>Results</strong> — Show or hide the Results panel.</li>
       </ul>
+
       <h4>Tools</h4>
       <ul>
-        <li><strong>Batch Mode</strong> — Open the batch analysis window.</li>
-        <li><strong>Import Input JSON</strong> — Load a saved input file into the Input
-        panel.</li>
-        <li><strong>Import Output JSON</strong> — Reload a results file and re-verify by
-        recomputing.</li>
-        <li><strong>View Calculations</strong> — Open the calculations reference document.</li>
+        <li><strong>Import Input JSON&hellip;</strong> — Load a saved input file directly into the Input panel.</li>
+        <li><strong>Import Output JSON&hellip;</strong> — Load a results file; inputs are restored and results recomputed.</li>
+        <li><strong>Batch Mode&hellip;</strong> — Open the Batch Mode window.</li>
       </ul>
+
       <h4>Help</h4>
       <ul>
         <li><strong>Help Topics</strong> — Open this window.</li>
-        <li><strong>About TADEE Analyser</strong> — Version and project information.</li>
+        <li><strong>About&hellip;</strong> — Version and project information.</li>
+      </ul>
+
+      <h4>Toolbar</h4>
+      <ul>
+        <li><strong>Compute</strong> — Run the transmission line computation with the current input parameters.</li>
+        <li><strong>Save Input</strong> — Save the current input parameters to a JSON file.</li>
+        <li><strong>Load Input</strong> — Load input parameters from a JSON file.</li>
+        <li><strong>Export Output</strong> — Export the computed results to a file. Enabled only after a successful computation.</li>
+        <li><strong>Batch Mode</strong> — Open the Batch Mode window.</li>
+        <li><strong>View Code</strong> — Open the source code viewer.</li>
+        <li><strong>View Calculations</strong> — Open the calculations reference document showing the formulae used.</li>
       </ul>
     `,
   },
@@ -346,7 +381,14 @@ const TREE = [
   {
     label: 'Features',
     children: [
-      { id: 'canvas-diagrams', label: 'Canvas Diagrams' },
+      {
+        id: 'canvas-diagrams', label: 'Canvas Diagrams',
+        children: [
+          { id: 'canvas-arrangement', label: 'Conductor Arrangement' },
+          { id: 'canvas-circuit',     label: 'Circuit Diagram' },
+          { id: 'canvas-phasor',      label: 'Phasor Diagram' },
+        ],
+      },
       { id: 'file-operations', label: 'File Operations' },
       { id: 'batch-mode',      label: 'Batch Mode' },
     ],
@@ -395,26 +437,7 @@ function _buildBody() {
 function _populateContents(panel) {
   const ul = document.createElement('ul');
   ul.className = 'tree-view help-tree';
-  TREE.forEach(node => {
-    const li = document.createElement('li');
-    if (node.children) {
-      const details = document.createElement('details');
-      details.open = true;
-      const summary = document.createElement('summary');
-      summary.textContent = node.label;
-      details.appendChild(summary);
-      const childUl = document.createElement('ul');
-      node.children.forEach(child => childUl.appendChild(_makeTopicLi(child)));
-      details.appendChild(childUl);
-      li.appendChild(details);
-    } else {
-      li.textContent   = node.label;
-      li.dataset.topic = node.id;
-      li.style.cursor  = 'default';
-      li.addEventListener('click', () => _navigate(node.id));
-    }
-    ul.appendChild(li);
-  });
+  TREE.forEach(node => ul.appendChild(_makeTopicLi(node)));
   panel.appendChild(ul);
 }
 
@@ -428,12 +451,34 @@ function _populateIndex(panel) {
   panel.appendChild(ul);
 }
 
-function _makeTopicLi({ id, label }) {
+function _makeTopicLi(node) {
   const li = document.createElement('li');
-  li.textContent   = label;
-  li.dataset.topic = id;
-  li.style.cursor  = 'default';
-  li.addEventListener('click', () => _navigate(id));
+  if (node.children) {
+    // Nested group node that also has its own topic id
+    const details = document.createElement('details');
+    details.open = true;
+    const summary = document.createElement('summary');
+    if (node.id) {
+      const a = document.createElement('a');
+      a.href          = '#';
+      a.textContent   = node.label;
+      a.dataset.topic = node.id;
+      a.addEventListener('click', e => { e.preventDefault(); _navigate(node.id); });
+      summary.appendChild(a);
+    } else {
+      summary.textContent = node.label;
+    }
+    details.appendChild(summary);
+    const childUl = document.createElement('ul');
+    node.children.forEach(child => childUl.appendChild(_makeTopicLi(child)));
+    details.appendChild(childUl);
+    li.appendChild(details);
+  } else {
+    li.textContent   = node.label;
+    li.dataset.topic = node.id;
+    li.style.cursor  = 'default';
+    li.addEventListener('click', () => _navigate(node.id));
+  }
   return li;
 }
 
