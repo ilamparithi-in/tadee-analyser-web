@@ -320,28 +320,39 @@ function _register(win) {
       e.stopPropagation();
       const s = registry.get(win);
       if (!s.closable) return;
-      if (win.dataset.startHidden === 'true') {
-        // App windows hide rather than close so they can be reopened
-        if (s.isMinimized) {
-          s.isMinimized = false;
-          win.classList.remove('minimized');
-        }
-        if (s.isMaximized) s.isMaximized = false;
-        s.isHidden = true;
-        win.style.visibility = 'hidden';
-        // Mark title bar inactive and hide taskbar button
-        const tb = win.querySelector('.title-bar');
-        if (tb) tb.classList.add('inactive');
-        if (s.taskBtn) s.taskBtn.style.display = 'none';
-      } else {
-        if (s.taskBtn) s.taskBtn.remove();
-        registry.delete(win);
-        win.remove();
+
+      // Allow external code to intercept close with a confirmation dialog.
+      // Set win._closeGuard = (proceed) => { /* ask user; call proceed() to continue */ }
+      if (typeof win._closeGuard === 'function') {
+        win._closeGuard(() => _doClose(win, s));
+        return;
       }
+      _doClose(win, s);
     });
   }
 
   _focus(win);
+}
+
+function _doClose(win, s) {
+  if (win.dataset.startHidden === 'true') {
+    // App windows hide rather than close so they can be reopened
+    if (s.isMinimized) {
+      s.isMinimized = false;
+      win.classList.remove('minimized');
+    }
+    if (s.isMaximized) s.isMaximized = false;
+    s.isHidden = true;
+    win.style.visibility = 'hidden';
+    // Mark title bar inactive and hide taskbar button
+    const tb = win.querySelector('.title-bar');
+    if (tb) tb.classList.add('inactive');
+    if (s.taskBtn) s.taskBtn.style.display = 'none';
+  } else {
+    if (s.taskBtn) s.taskBtn.remove();
+    registry.delete(win);
+    win.remove();
+  }
 }
 
 // ─── Focus ────────────────────────────────────────────────────────────────────

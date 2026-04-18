@@ -81,9 +81,12 @@ export function initDesktop(containerEl) {
     'press <kbd>Ctrl</kbd>&nbsp;+&nbsp;<kbd>+</kbd> to increase zoom.</span>' +
     '<button class="adn-close" aria-label="Close notice" title="Close">✕</button>';
   containerEl.appendChild(notice);
-  notice.querySelector('.adn-close').addEventListener('click', () => notice.remove());
+  notice.querySelector('.adn-close').addEventListener('click', () => {
+    notice.remove();
+    _stackLegalese(legal, null);
+  });
 
-  // Legalese — bottom-right corner, below the zoom notice
+  // Legalese — bottom-right corner, stacked above the zoom notice
   const legal = document.createElement('div');
   legal.id = 'desktop-legalese';
   legal.innerHTML =
@@ -100,6 +103,10 @@ export function initDesktop(containerEl) {
   });
   containerEl.appendChild(legal);
 
+  // Stack legalese above the zoom notice dynamically
+  _stackLegalese(legal, notice);
+  new ResizeObserver(() => _stackLegalese(legal, notice)).observe(notice);
+
   // Deselect all icons when clicking blank desktop space
   containerEl.addEventListener('click', e => {
     if (e.target === containerEl) _deselectAll();
@@ -112,6 +119,20 @@ export function initDesktop(containerEl) {
 
 function _deselectAll() {
   document.querySelectorAll('.desktop-icon.selected').forEach(i => i.classList.remove('selected'));
+}
+
+/**
+ * Position `legalEl` so it sits 8px above `noticeEl`.
+ * If noticeEl is null or no longer in the DOM, fall back to bottom: 12px.
+ */
+function _stackLegalese(legalEl, noticeEl) {
+  if (noticeEl && noticeEl.isConnected) {
+    const noticeH   = noticeEl.offsetHeight;
+    const noticeBot = parseInt(getComputedStyle(noticeEl).bottom, 10) || 12;
+    legalEl.style.bottom = (noticeBot + noticeH + 8) + 'px';
+  } else {
+    legalEl.style.bottom = '12px';
+  }
 }
 
 function _createIcon({ id, label, img: imgSrc, overlay, hint, action }) {

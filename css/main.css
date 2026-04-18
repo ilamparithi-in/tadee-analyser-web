@@ -131,7 +131,7 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
 /* ─── Active Desktop zoom notice ──────────────────────────────────────────── */
 #active-desktop-notice {
   position: absolute;
-  bottom: 52px; right: 12px;
+  bottom: 12px; right: 12px;
   display: flex; align-items: flex-start; gap: 8px;
   max-width: 280px;
   background: #ffffc8;
@@ -179,7 +179,7 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
 /* ─── Desktop legalese ────────────────────────────────────────────────────── */
 #desktop-legalese {
   position: absolute;
-  bottom: 12px; right: 12px;
+  bottom: 12px; right: 12px; /* updated dynamically by desktop.js */
   max-width: 340px;
   font-family: 'Pixelated MS Sans Serif', sans-serif;
   font-size: 11px;

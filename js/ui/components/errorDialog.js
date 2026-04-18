@@ -11,6 +11,8 @@
  *   showConfirm('Message text', onOk, onCancel);
  */
 
+import { createWindow } from './createWindow.js';
+
 let _overlayEl = null;
 let _msgEl     = null;
 let _okBtn     = null;
@@ -253,5 +255,97 @@ export function showBeforeUnload(onConfirm) {
   _buOnConfirm = onConfirm ?? null;
   _buOverlayEl.style.display = 'flex';
   _buOverlayEl.querySelector('#bu-dialog-cancel').focus();
+  _playChimes();
+}
+
+// ─── Window close-confirm dialog (no backdrop dim) ───────────────────────────
+
+let _wcOverlayEl = null;
+let _wcOnOk      = null;
+let _wcOnCancel  = null;
+let _wcCancelBtn = null;
+
+function _ensureWindowCloseDOM() {
+  if (_wcOverlayEl) return;
+
+  // Transparent overlay — blocks pointer events but does not dim the background.
+  _wcOverlayEl = document.createElement('div');
+  _wcOverlayEl.style.cssText =
+    'position:fixed;inset:0;background:transparent;' +
+    'z-index:99999;display:none;align-items:center;justify-content:center;';
+
+  // ── Content ──────────────────────────────────────────────────────────────
+  const msgRow = document.createElement('div');
+  msgRow.style.cssText = 'display:flex;gap:12px;align-items:flex-start;margin-bottom:8px;';
+  msgRow.innerHTML =
+    '<img src="media/icons/msg_question-0.png" width="32" height="32" alt="" style="flex:0 0 32px;">' +
+    '<p style="margin:0;font-size:11px;line-height:1.5;">' +
+    'The Transmission Line Analyser has unsaved input data.<br><br>' +
+    'Are you sure you want to close it? All entered values will be lost.' +
+    '</p>';
+
+  const okBtn     = document.createElement('button');
+  okBtn.textContent = 'Close';
+  okBtn.style.minWidth = '75px';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.style.minWidth = '75px';
+
+  const btnRow = document.createElement('div');
+  btnRow.className = 'field-row';
+  btnRow.style.cssText = 'justify-content:center;gap:8px;';
+  btnRow.appendChild(okBtn);
+  btnRow.appendChild(cancelBtn);
+
+  const content = document.createElement('div');
+  content.appendChild(msgRow);
+  content.appendChild(btnRow);
+
+  // ── Window via createWindow ───────────────────────────────────────────────
+  const win = createWindow({
+    title:       'Confirm Close',
+    width:       360,
+    resizable:   false,
+    maximizable: false,
+    minimizable: false,
+    closable:    true,
+    content,
+  });
+  win.style.position = 'relative';
+  win.style.height   = 'auto';
+
+  _wcOverlayEl.appendChild(win);
+  document.body.appendChild(_wcOverlayEl);
+
+  const ok     = () => { _wcOverlayEl.style.display = 'none'; _wcOnOk?.(); };
+  const cancel = () => { _wcOverlayEl.style.display = 'none'; _wcOnCancel?.(); };
+
+  okBtn.addEventListener('click', ok);
+  cancelBtn.addEventListener('click', cancel);
+  win.querySelector('button[aria-label="Close"]').addEventListener('click', cancel);
+  _wcOverlayEl.addEventListener('click', e => { if (e.target === _wcOverlayEl) cancel(); });
+  document.addEventListener('keydown', e => {
+    if (_wcOverlayEl.style.display === 'none') return;
+    if (e.key === 'Escape') cancel();
+    if (e.key === 'Enter')  { e.preventDefault(); ok(); }
+  });
+
+  // Store reference to cancel button for focus
+  _wcCancelBtn = cancelBtn;
+}
+
+/**
+ * Show a Win98-style close-confirmation dialog with no background dimming.
+ * Plays chimes.mp3 and shows the question icon.
+ * @param {Function} onOk      Called when user confirms close
+ * @param {Function} [onCancel]
+ */
+export function showWindowCloseConfirm(onOk, onCancel) {
+  _ensureWindowCloseDOM();
+  _wcOnOk     = onOk     ?? null;
+  _wcOnCancel = onCancel ?? null;
+  _wcOverlayEl.style.display = 'flex';
+  _wcCancelBtn.focus();
   _playChimes();
 }

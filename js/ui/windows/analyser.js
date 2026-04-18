@@ -14,7 +14,7 @@ import { initPanelLayout }  from '../components/panels.js';
 import { initResultsGrid }  from '../components/grid.js';
 import { initTooltips }     from '../components/tooltip.js';
 import { initUnitInputs, getBaseValue } from '../components/unitInput.js';
-import { showError }        from '../components/errorDialog.js';
+import { showError, showWindowCloseConfirm } from '../components/errorDialog.js';
 import { showBalloon, hideBalloon }    from '../components/balloon.js';
 import { initDiagramContainer, updateDiagrams } from '../components/diagrams.js';
 import { computeFromParams, normaliseModel, fmtComplex, buildReportPage, PDF_STYLES } from '../../batch.js';
@@ -116,6 +116,33 @@ export function initAnalyserWindow(viewport) {
   // Diagram panes
   const container = win.querySelector('#canvas-container');
   if (container) initDiagramContainer(container);
+
+  // Close guard — confirm before closing if there are unsaved inputs
+  win._closeGuard = (proceed) => {
+    if (hasAnalyserInputs()) {
+      showWindowCloseConfirm(proceed);
+    } else {
+      proceed();
+    }
+  };
+}
+
+/**
+ * Returns true if the TLA window is currently visible (not hidden/closed).
+ */
+export function isAnalyserOpen() {
+  const win = document.getElementById('win-analyser');
+  return !!win && win.style.visibility !== 'hidden';
+}
+
+/**
+ * Returns true if any numeric input field in the TLA window has a value.
+ */
+export function hasAnalyserInputs() {
+  const win = document.getElementById('win-analyser');
+  if (!win) return false;
+  return Array.from(win.querySelectorAll('input[type=number]'))
+    .some(el => el.value.trim() !== '');
 }
 
 let _gridApi = null;

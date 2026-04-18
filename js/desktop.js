@@ -1,5 +1,6 @@
 import { initDesktop } from './ui/components/desktop.js';
 import { showBeforeUnload } from './ui/components/errorDialog.js';
+import { isAnalyserOpen } from './ui/windows/analyser.js';
 
 const desktop = document.getElementById('desktop');
 if (desktop) initDesktop(desktop);
@@ -17,6 +18,7 @@ let _allowReload = false;
 
 window.addEventListener('beforeunload', e => {
   if (_allowReload) return;
+  if (!isAnalyserOpen()) return;
   e.preventDefault();
   return ''; // triggers browser's own "Leave site?" for non-keyboard navigation
 });
@@ -29,6 +31,8 @@ document.addEventListener('keydown', e => {
   const isClose  = mod && key === 'w';
 
   if (!isReload && !isClose) return;
+  if (!isAnalyserOpen()) return; // only intercept when TLA window is open
+
   e.preventDefault();
   e.stopImmediatePropagation();
 
