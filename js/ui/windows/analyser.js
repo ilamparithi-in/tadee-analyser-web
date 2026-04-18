@@ -19,7 +19,7 @@ import { showError, showConfirm, showWindowCloseConfirm } from '../components/er
 import { showBalloon, hideBalloon }    from '../components/balloon.js';
 import { initDiagramContainer, updateDiagrams,
          renderArrangementSvgStr, renderCircuitSvgStr, renderPhasorSvgStr } from '../components/diagrams.js';
-import { computeFromParams, normaliseModel, fmtComplex, buildReportPage, buildDiagramPage, PDF_STYLES } from '../../batch.js';
+import { computeFromParams, normaliseModel, fmtComplex, fmtComplexLong, buildReportPage, buildDiagramPage, PDF_STYLES } from '../../batch.js';
 import { initPanelPopout }  from '../components/panelPopout.js';
 
 export function initAnalyserWindow(viewport) {
@@ -252,7 +252,17 @@ function _saveInputs(win) {
 function _exportOutput(win) {
   if (!_lastResults) return;
   const stamp = _timestamp();
-  _triggerDownload(JSON.stringify(_lastResults, null, 2), `tadee-output_${stamp}.json`, 'application/json');
+  const { inputs, outputs, rows } = _lastResults;
+  const comments = [
+    `// ${REPORT_META.title}`,
+    `// ${REPORT_META.subtitle}`,
+    `// Team Members:   ${REPORT_META.team}`,
+    `// Date:           ${REPORT_META.date}`,
+    `// Generated:      ${_isoTimestamp()}`,
+    `// ${REPORT_META.footer}`,
+  ].join('\n');
+  const body = JSON.stringify({ inputs, outputs }, null, 2);
+  _triggerDownload(comments + '\n' + body, `tadee-output_${stamp}.json`, 'application/json');
   const sb = win.querySelector('#sb-status');
   if (sb) sb.textContent = 'Exported';
 }
@@ -293,9 +303,35 @@ ${page2}</body>
 
 function _exportTxt(win) {
   if (!_lastResults) return;
-  const lines = _lastResults.rows.map(([name, value, unit]) =>
-    unit ? `${name}\t${value}\t${unit}` : `${name}\t${value}`
-  );
+  const { inputs, outputs } = _lastResults;
+  const inputRows  = _buildInputRows(inputs);
+  const resultRows = _buildResultRows(outputs);
+
+  const HR = '\u2500'.repeat(62);
+  const col = (s, w) => String(s).padEnd(w);
+  const numCol = (n, s, w) => `${String(n).padStart(2)}.  ${col(s, w)}`;
+
+  const lines = [
+    REPORT_META.title.toUpperCase(),
+    REPORT_META.subtitle,
+    '',
+    `Team Members:   ${REPORT_META.team}`,
+    `Date:           ${REPORT_META.date}`,
+    `Generated:      ${_isoTimestamp()}`,
+    '',
+    'INPUT PARAMETERS',
+    HR,
+    ...inputRows.map(([label, val], i) => `${numCol(i + 1, label, 44)}${val}`),
+    '',
+    'ANALYSIS RESULTS',
+    HR,
+    ...resultRows.map(([label, val, unit], i) =>
+      `${numCol(i + 1, label, 44)}${col(val, 28)}${unit}`
+    ),
+    '',
+    HR,
+    REPORT_META.footer,
+  ];
   const stamp = _timestamp();
   _triggerDownload(lines.join('\n'), `tadee-results_${stamp}.txt`, 'text/plain');
   const sb = win.querySelector('#sb-status');
@@ -304,15 +340,96 @@ function _exportTxt(win) {
 
 function _exportMd(win) {
   if (!_lastResults) return;
-  const rows = [
-    '| Parameter | Value | Unit |',
+  const { inputs, outputs } = _lastResults;
+  const inputRows  = _buildInputRows(inputs);
+  const resultRows = _buildResultRows(outputs);
+
+  const lines = [
+    `# ${REPORT_META.title}`,
+    `> ${REPORT_META.subtitle}`,
+    '',
+    '| | |',
+    '| --- | --- |',
+    `| **Team Members** | ${REPORT_META.team} |`,
+    `| **Date of Submission** | ${REPORT_META.date} |`,
+    `| **Generated** | ${_isoTimestamp()} |`,
+    '',
+    '## Input Parameters',
+    '',
+    '| # | Parameter | Value |',
     '| --- | --- | --- |',
-    ..._lastResults.rows.map(([name, value, unit]) => `| ${name} | ${value} | ${unit} |`),
+    ...inputRows.map(([label, val], i) => `| ${i + 1} | ${label} | ${val} |`),
+    '',
+    '## Analysis Results',
+    '',
+    '| # | Parameter | Value | Unit |',
+    '| --- | --- | --- | --- |',
+    ...resultRows.map(([label, val, unit], i) => `| ${i + 1} | ${label} | ${val} | ${unit} |`),
+    '',
+    '---',
+    `*${REPORT_META.footer}*`,
   ];
   const stamp = _timestamp();
-  _triggerDownload(rows.join('\n'), `tadee-results_${stamp}.md`, 'text/markdown');
+  _triggerDownload(lines.join('\n'), `tadee-results_${stamp}.md`, 'text/markdown');
   const sb = win.querySelector('#sb-status');
   if (sb) sb.textContent = 'Exported';
+}
+
+// ─── Report metadata (mirrors buildReportPage) ──────────────────────────────
+const REPORT_META = {
+  title:    'Transmission Line Analysis Report',
+  subtitle: 'Three-Phase Single-Circuit Bundled Conductor Transmission System',
+  team:     'Ilamparithi Murali (107124046), Priyadarsan ST (107124084), Srijith M S (107124110)',
+  date:     '17/04/2026',
+  footer:   'TADEE Group 7 \u2014 Transmission Line Analyser',
+};
+
+/** Returns [[label, valueString], ...] for the input parameters section (mirrors PDF table). */
+function _buildInputRows(inp) {
+  const modelLabel = ['Short line', 'Nominal \u03c0', 'Distributed parameter'][inp.model] ?? String(inp.model);
+  const symLabel   = (inp.symmetric === 1 || inp.symmetric === '1') ? 'Symmetrical' : 'Unsymmetrical';
+  const spacingStr = (inp.symmetric === 1 || inp.symmetric === '1')
+    ? `${inp.phaseSpacingM} m`
+    : `Dab = ${inp.Dab} m, Dbc = ${inp.Dbc} m, Dca = ${inp.Dca} m`;
+  return [
+    ['Length of the line',                    `${inp.lineLengthKm} km`],
+    ['Receiving end load',                    `${inp.recvLoadMW} MW`],
+    ['Power factor (receiving end)',           `${inp.recvPF}`],
+    ['Nominal system voltage',                `${inp.nomSyskV} kV`],
+    ['Power frequency',                       `${inp.frequency} Hz`],
+    ['Spacing type',                          symLabel],
+    ['Phase conductor spacing',               spacingStr],
+    ['Sub-conductors per bundle',             `${inp.scCount}`],
+    ['Sub-conductor spacing',                 `${inp.scSpacingM} m`],
+    ['Number of strands per sub-conductor',   `${inp.scStrands}`],
+    ['Strand diameter',                       `${inp.strandDiaM} m`],
+    ['AC resistance per sub-conductor',       `${inp.resSCPerKm} \u03a9/km`],
+    ['Line model',                            modelLabel],
+  ];
+}
+
+/** Returns [[label, valueString, unit], ...] for the results section (mirrors PDF table). */
+function _buildResultRows(out) {
+  const fc = fmtComplexLong;
+  return [
+    ['Inductance per phase per km',         out.Lphkm.toExponential(4),              'H/km'],
+    ['Capacitance per phase per km',        out.Cphkm.toExponential(4),              'F/km'],
+    ['Inductive reactance XL',              out.Xl.toFixed(4),                       '\u03a9'],
+    ['Capacitive reactance XC',             out.Xc.toFixed(4),                       '\u03a9'],
+    ['ABCD \u2014 A',                       fc(out.A),                               ''],
+    ['ABCD \u2014 B',                       fc(out.B),                               '\u03a9'],
+    ['ABCD \u2014 C',                       fc(out.C),                               'S'],
+    ['ABCD \u2014 D',                       fc(out.D),                               ''],
+    ['Sending end voltage (phase)',          fc(out.Vs_phase_kV),                     'kV'],
+    ['Sending end voltage (line-to-line)',   fc(out.Vs_line_kV),                      'kV'],
+    ['Sending end current Is',              fc(out.Is_A),                            'A'],
+    ['Charging current Ic',                 fc(out.Ic_A),                            'A'],
+    ['Voltage regulation',                  out.VR.toFixed(4),                       '%'],
+    ['Power loss (3\u03c6)',                out.lossMW.toFixed(4),                   'MW'],
+    ['Transmission efficiency',             (out.eta * 100).toFixed(2),              '%'],
+    ['Surge impedance Zc',                  out.Zc.toFixed(4),                       '\u03a9'],
+    ['Surge impedance loading (SIL)',        out.SIL.toFixed(4),                      'MW'],
+  ];
 }
 
 function _timestamp() {
@@ -320,6 +437,13 @@ function _timestamp() {
   const pad = n => String(n).padStart(2, '0');
   return `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}` +
          `-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+}
+
+function _isoTimestamp() {
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  return `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}` +
+         ` ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
 }
 
 function _triggerDownload(content, filename, mime) {
@@ -565,11 +689,11 @@ function _initFileMenu(win, viewport) {
     document.addEventListener('click', () => exportPanel.classList.remove('open'));
   }
 
-  // Export result as… button actions
-  win.querySelector('#menu-export-pdf')?.addEventListener('click',  () => _exportPdf(win));
-  win.querySelector('#menu-export-json')?.addEventListener('click', () => _exportOutput(win));
-  win.querySelector('#menu-export-txt')?.addEventListener('click',  () => _exportTxt(win));
-  win.querySelector('#menu-export-md')?.addEventListener('click',   () => _exportMd(win));
+  // Export result as… button actions (panel lives outside #win-analyser, use document)
+  document.getElementById('menu-export-pdf')?.addEventListener('click',  () => _exportPdf(win));
+  document.getElementById('menu-export-json')?.addEventListener('click', () => _exportOutput(win));
+  document.getElementById('menu-export-txt')?.addEventListener('click',  () => _exportTxt(win));
+  document.getElementById('menu-export-md')?.addEventListener('click',   () => _exportMd(win));
 }
 
 function _initViewMenu(win) {
