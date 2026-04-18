@@ -1373,21 +1373,25 @@ function _drawShortCircuit(g, sw, sh, inputs, outputs) {
   _circuitLabel(g, midX, topY + 16,
     'Z\u00a0=\u00a0' + _fmtRect(outputs.B.re, outputs.B.im, '\u03a9', 3), 'middle');
 
-  // ── Voltage arrows ────────────────────────────────────────────────────────
+  // ── Voltage arrows (name only) ────────────────────────────────────────────
   const Vr_kV = inputs.nomSyskV / Math.sqrt(3);
-  _drawVoltageArrow(g, leftX,  topY, botY,
-    'VS\u00a0=\u00a0' + _fmtPhasor(outputs.Vs_phase_kV.re, outputs.Vs_phase_kV.im, 'kV'), 'left');
-  _drawVoltageArrow(g, rightX, topY, botY,
-    'VR\u00a0=\u00a0' + Vr_kV.toFixed(3) + '\u2220+0.0\u00b0\u00a0kV', 'right');
+  _drawVoltageArrow(g, leftX,  topY, botY, 'VS', 'left');
+  _drawVoltageArrow(g, rightX, topY, botY, 'VR', 'right');
 
-  // ── Current arrows ────────────────────────────────────────────────────────
+  // ── Current arrows (name only) ────────────────────────────────────────────
   const arrowY = topY - 26;
   const IS = _IS_kA(outputs);
   const IR = _computeIR(inputs, outputs);
-  _drawCurrentArrow(g, leftX  + 4, serL - 3, arrowY,
-    'IS\u00a0=\u00a0' + _fmtPhasor(IS.re, IS.im, 'kA', 3));
-  _drawCurrentArrow(g, serR + 3, rightX - 4, arrowY,
-    'IR\u00a0=\u00a0' + _fmtPhasor(IR.re, IR.im, 'kA', 3));
+  _drawCurrentArrow(g, leftX  + 4, serL - 3, arrowY, 'IS');
+  _drawCurrentArrow(g, serR + 3, rightX - 4, arrowY, 'IR');
+
+  // ── Bottom-right values table ─────────────────────────────────────────────
+  _circuitValuesTable(g, sw, sh, [
+    { label: 'VS', value: _fmtPhasor(outputs.Vs_phase_kV.re, outputs.Vs_phase_kV.im, 'kV') },
+    { label: 'VR', value: Vr_kV.toFixed(3) + '\u2220+0.0\u00b0\u00a0kV' },
+    { label: 'IS', value: _fmtPhasor(IS.re, IS.im, 'kA', 3) },
+    { label: 'IR', value: _fmtPhasor(IR.re, IR.im, 'kA', 3) },
+  ]);
 }
 
 function _drawNominalPiCircuit(g, sw, sh, inputs, outputs) {
@@ -1442,21 +1446,35 @@ function _drawNominalPiCircuit(g, sw, sh, inputs, outputs) {
   _circuitLabel(g, juncL - 10, capMidY, 'Y/2\u00a0=\u00a0' + Ylbl, 'end');
   _circuitLabel(g, juncR + 10, capMidY, 'Y/2\u00a0=\u00a0' + Ylbl, 'start');
 
-  // ── Voltage arrows ────────────────────────────────────────────────────────
+  // ── Voltage arrows (name only) ───────────────────────────────────────────────
   const Vr_kV = inputs.nomSyskV / Math.sqrt(3);
-  _drawVoltageArrow(g, leftX,  topY, botY,
-    'VS\u00a0=\u00a0' + _fmtPhasor(outputs.Vs_phase_kV.re, outputs.Vs_phase_kV.im, 'kV'), 'left');
-  _drawVoltageArrow(g, rightX, topY, botY,
-    'VR\u00a0=\u00a0' + Vr_kV.toFixed(3) + '\u2220+0.0\u00b0\u00a0kV', 'right');
+  const pVS  = outputs.Vs_phase_kV;
+  const pVR  = { re: Vr_kV, im: 0 };
+  _drawVoltageArrow(g, leftX,  topY, botY, 'VS', 'left');
+  _drawVoltageArrow(g, rightX, topY, botY, 'VR', 'right');
 
-  // ── Current arrows ────────────────────────────────────────────────────────
+  // ── Currents (name only on arrows, values in table) ─────────────────────────
   const arrowY = topY - 26;
   const IS = _IS_kA(outputs);
   const IR = _computeIR(inputs, outputs);
-  _drawCurrentArrow(g, leftX  + 4, juncL - 4, arrowY,
-    'IS\u00a0=\u00a0' + _fmtPhasor(IS.re, IS.im, 'kA', 3));
-  _drawCurrentArrow(g, juncR + 4, rightX - 4, arrowY,
-    'IR\u00a0=\u00a0' + _fmtPhasor(IR.re, IR.im, 'kA', 3));
+  _drawCurrentArrow(g, leftX  + 4, juncL - 4, arrowY, 'IS');
+  _drawCurrentArrow(g, juncR + 4, rightX - 4, arrowY, 'IR');
+
+  // IC1 = j(Y/2)·VR (receiving-end, right shunt), IC2 = j(Y/2)·VS (sending-end, left shunt)
+  const pIC1 = { re: -pVR.im / (2 * outputs.Xc), im: pVR.re / (2 * outputs.Xc) };
+  const pIC2 = { re: -pVS.im / (2 * outputs.Xc), im: pVS.re / (2 * outputs.Xc) };
+  _drawCapCurrentArrow(g, juncR, topY, botY, 'IC1', 'right');
+  _drawCapCurrentArrow(g, juncL, topY, botY, 'IC2', 'left');
+
+  // ── Bottom-right values table ──────────────────────────────────────────────
+  _circuitValuesTable(g, sw, sh, [
+    { label: 'VS',  value: _fmtPhasor(pVS.re,  pVS.im,  'kV') },
+    { label: 'VR',  value: Vr_kV.toFixed(3) + '\u2220+0.0\u00b0\u00a0kV' },
+    { label: 'IS',  value: _fmtPhasor(IS.re,   IS.im,   'kA', 3) },
+    { label: 'IR',  value: _fmtPhasor(IR.re,   IR.im,   'kA', 3) },
+    { label: 'IC1', value: _fmtPhasor(pIC1.re, pIC1.im, 'kA', 3) },
+    { label: 'IC2', value: _fmtPhasor(pIC2.re, pIC2.im, 'kA', 3) },
+  ]);
 }
 
 function _drawDistributedCircuit(g, sw, sh, inputs, outputs) {
@@ -1534,20 +1552,25 @@ function _drawDistributedCircuit(g, sw, sh, inputs, outputs) {
     `z\u00a0=\u00a0${r_km.toFixed(3)}\u00a0+\u00a0j${x_km.toFixed(3)}\u00a0\u03a9/km` +
     `\u2002|\u2002b\u00a0=\u00a0${(b_km * 1e6).toFixed(2)}\u00a0\u03bcS/km`, 'middle');
 
-  // ── Voltage arrows ────────────────────────────────────────────────────────
+  // ── Voltage arrows (name only) ────────────────────────────────────────────
   const Vr_kV = inputs.nomSyskV / Math.sqrt(3);
-  _drawVoltageArrow(g, leftX,        topY, botY,
-    'VS\u00a0=\u00a0' + _fmtPhasor(outputs.Vs_phase_kV.re, outputs.Vs_phase_kV.im, 'kV'), 'left');
-  _drawVoltageArrow(g, actualRightX, topY, botY,
-    'VR\u00a0=\u00a0' + Vr_kV.toFixed(3) + '\u2220+0.0\u00b0\u00a0kV', 'right');
+  _drawVoltageArrow(g, leftX,        topY, botY, 'VS', 'left');
+  _drawVoltageArrow(g, actualRightX, topY, botY, 'VR', 'right');
 
+  // ── Current arrows (name only) ────────────────────────────────────────────
   const IS = _IS_kA(outputs);
   const IR = _computeIR(inputs, outputs);
   const arrowY = topY - 28;
-  _drawCurrentArrow(g, leftX + 4, leftX + CELL_W * 0.45, arrowY,
-    'IS\u00a0=\u00a0' + _fmtPhasor(IS.re, IS.im, 'kA', 3));
-  _drawCurrentArrow(g, j4 + 4, actualRightX - 4, arrowY,
-    'IR\u00a0=\u00a0' + _fmtPhasor(IR.re, IR.im, 'kA', 3));
+  _drawCurrentArrow(g, leftX + 4, leftX + CELL_W * 0.45, arrowY, 'IS');
+  _drawCurrentArrow(g, j4 + 4, actualRightX - 4, arrowY, 'IR');
+
+  // ── Bottom-right values table ─────────────────────────────────────────────
+  _circuitValuesTable(g, sw, sh, [
+    { label: 'VS', value: _fmtPhasor(outputs.Vs_phase_kV.re, outputs.Vs_phase_kV.im, 'kV') },
+    { label: 'VR', value: Vr_kV.toFixed(3) + '\u2220+0.0\u00b0\u00a0kV' },
+    { label: 'IS', value: _fmtPhasor(IS.re, IS.im, 'kA', 3) },
+    { label: 'IR', value: _fmtPhasor(IR.re, IR.im, 'kA', 3) },
+  ]);
 }
 
 // ─── Distributed d/dx view (differential element) ────────────────────────────
@@ -1621,21 +1644,25 @@ function _drawDistributedDiff(g, sw, sh, inputs, outputs) {
   _circuitLabel(g, boxL + 6,  topY + 24, 'V+dV', 'start');
   _circuitLabel(g, boxR - 6,  topY + 24, 'V',    'end');
 
-  // ── Voltage arrows ────────────────────────────────────────────────────────
+  // ── Voltage arrows (name only) ────────────────────────────────────────────
   const Vr_kV = inputs.nomSyskV / Math.sqrt(3);
-  _drawVoltageArrow(g, leftX,  topY, botY,
-    'VS\u00a0=\u00a0' + _fmtPhasor(outputs.Vs_phase_kV.re, outputs.Vs_phase_kV.im, 'kV'), 'left');
-  _drawVoltageArrow(g, rightX, topY, botY,
-    'VR\u00a0=\u00a0' + Vr_kV.toFixed(3) + '\u2220+0.0\u00b0\u00a0kV', 'right');
+  _drawVoltageArrow(g, leftX,  topY, botY, 'VS', 'left');
+  _drawVoltageArrow(g, rightX, topY, botY, 'VR', 'right');
 
-  // ── IS / IR current arrows ────────────────────────────────────────────────
+  // ── IS / IR current arrows (name only) ───────────────────────────────────
   const arrowY = topY - 10;
   const IS = _IS_kA(outputs);
   const IR = _computeIR(inputs, outputs);
-  _drawCurrentArrow(g, leftX + 4, leftX + 44, arrowY,
-    'IS\u00a0=\u00a0' + _fmtPhasor(IS.re, IS.im, 'kA', 3));
-  _drawCurrentArrow(g, rightX - 48, rightX - 4, arrowY,
-    'IR\u00a0=\u00a0' + _fmtPhasor(IR.re, IR.im, 'kA', 3));
+  _drawCurrentArrow(g, leftX + 4, leftX + 44, arrowY, 'IS');
+  _drawCurrentArrow(g, rightX - 48, rightX - 4, arrowY, 'IR');
+
+  // ── Bottom-right values table ─────────────────────────────────────────────
+  _circuitValuesTable(g, sw, sh, [
+    { label: 'VS', value: _fmtPhasor(outputs.Vs_phase_kV.re, outputs.Vs_phase_kV.im, 'kV') },
+    { label: 'VR', value: Vr_kV.toFixed(3) + '\u2220+0.0\u00b0\u00a0kV' },
+    { label: 'IS', value: _fmtPhasor(IS.re, IS.im, 'kA', 3) },
+    { label: 'IR', value: _fmtPhasor(IR.re, IR.im, 'kA', 3) },
+  ]);
 }
 
 // ─── Shared circuit label utilities ──────────────────────────────────────────
@@ -1647,6 +1674,47 @@ function _drawCurrentArrow(parent, x1, x2, y, label) {
   parent.appendChild(_el('line', { x1, y1: y, x2: x2 - AL, y2: y, stroke: '#555', 'stroke-width': '1' }));
   _arrowhead(parent, x2, y, 1, 0, AL, AW);
   _circuitLabel(parent, (x1 + x2) / 2, y - 4, label, 'middle');
+}
+
+/**
+ * Downward charging-current arrow offset beside a shunt cap.
+ * side: 'left' | 'right' — which side of the cap wire to place the arrow.
+ * Label is written below the arrowhead tip.
+ */
+function _drawCapCurrentArrow(parent, x, topY, botY, name, side = 'right') {
+  const OFFSET = 16;
+  const ax = side === 'right' ? x + OFFSET : x - OFFSET;
+  const AL = 5, AW = 2.5;
+  parent.appendChild(_el('line', { x1: ax, y1: topY, x2: ax, y2: botY - AL,
+    stroke: '#555', 'stroke-width': '1' }));
+  _arrowhead(parent, ax, botY, 0, 1, AL, AW);
+  const anchor = side === 'right' ? 'start' : 'end';
+  const labelX = ax + (side === 'right' ? 4 : -4);
+  _circuitLabel(parent, labelX, botY + 10, name, anchor);
+}
+
+/**
+ * Fixed bottom-right SVG values table (appended to svg, not the pannable g).
+ * entries: [{label, value}]
+ */
+function _circuitValuesTable(svg, sw, sh, entries) {
+  const ROW_H = 13, PAD_R = 8, PAD_B = 8;
+  const startY = sh - PAD_B - entries.length * ROW_H;
+  const tg = _el('g');
+  svg.appendChild(tg);
+  entries.forEach((entry, i) => {
+    const rowY = startY + i * ROW_H + ROW_H / 2;
+    for (const [stroke, fill] of [['#fff', 'none'], ['none', '#333']]) {
+      const t = _el('text', {
+        x: sw - PAD_R, y: rowY,
+        'text-anchor': 'end', 'dominant-baseline': 'middle',
+        'font-family': FONT, 'font-size': '9',
+        fill, stroke, 'stroke-width': stroke === '#fff' ? '2.5' : '0', 'paint-order': 'stroke',
+      });
+      t.textContent = entry.label + '\u00a0=\u00a0' + entry.value;
+      tg.appendChild(t);
+    }
+  });
 }
 
 /** White-knockout text label, readable on any background. */
