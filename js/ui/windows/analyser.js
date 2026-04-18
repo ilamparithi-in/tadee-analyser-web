@@ -129,6 +129,9 @@ export function initAnalyserWindow(viewport) {
   // Sub-conductor spacing accuracy warning
   _initSubSpacingWarning(win);
 
+  // Power factor range warning
+  _initPowerFactorWarning(win);
+
   // Status bar hover hints
   _initStatusBarHints(win);
 
@@ -1064,6 +1067,31 @@ function _initSubSpacingWarning(win) {
   sysType?.addEventListener('change', _check);
 }
 
+// ─── Power factor range warning ─────────────────────────────────────────────
+
+function _initPowerFactorWarning(win) {
+  const pfInput = win.querySelector('#power-factor');
+
+  function _check() {
+    const pf = parseFloat(pfInput?.value ?? '');
+    if (isNaN(pf) || pf === 0) { hideBalloon(); return; }
+    if (pf > 1) {
+      const r = pfInput.getBoundingClientRect();
+      if (r.bottom <= 0 || r.top >= window.innerHeight ||
+          r.right  <= 0 || r.left >= window.innerWidth) return;
+      showBalloon(pfInput, {
+        title:   'Value out of range',
+        message: 'Power factor must be between 0 and 1.',
+        type:    'warning',
+      });
+    } else {
+      hideBalloon();
+    }
+  }
+
+  pfInput?.addEventListener('input', _check);
+}
+
 // ─── Status bar hover hints ──────────────────────────────────────────────────
 
 const SB_HINTS = {
@@ -1193,6 +1221,19 @@ function _compute(win) {
   };
 
   // ── Validate ───────────────────────────────────────────────────────────────
+  // Power factor range check
+  const pfInput = v('power-factor');
+  const pfVal   = params.recvPF;
+  if (!isNaN(pfVal) && pfVal > 1) {
+    if (sbStatus) sbStatus.textContent = 'Invalid: Power Factor';
+    showBalloon(pfInput, {
+      title:   'Value out of range',
+      message: 'Power factor must be between 0 and 1.',
+      type:    'warning',
+    });
+    return;
+  }
+
   // phaseSpacingM is hidden (and unused) when unsymmetric — skip it in that case
   const bad = Object.entries(params).filter(([k, val]) => {
     if (k === 'phaseSpacingM' && isUnsym) return false;
