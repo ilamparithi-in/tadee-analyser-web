@@ -191,6 +191,62 @@ let _phasorG      = null;
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
+// ─── Diagram-grid drag splitters ─────────────────────────────────────────────
+
+function _initDiagramSplitters(grid, splitterV, splitterH) {
+  const MIN_COL =  80; // min px for left column (arrangement + phasor)
+  const MIN_ROW =  60; // min px for arrangement row or phasor row
+  const SPLIT   =   5; // splitter element thickness in px
+
+  // Vertical splitter: drag left/right changes --dg-col1
+  splitterV.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    splitterV.setPointerCapture(e.pointerId);
+    const startX     = e.clientX;
+    const startWidth = splitterV.getBoundingClientRect().left - grid.getBoundingClientRect().left;
+    document.body.style.cursor     = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    function onMove(e) {
+      const gridW = grid.getBoundingClientRect().width;
+      const newW  = Math.max(MIN_COL, Math.min(startWidth + (e.clientX - startX), gridW - SPLIT - MIN_COL));
+      grid.style.setProperty('--dg-col1', newW + 'px');
+    }
+    function onUp() {
+      document.body.style.cursor     = '';
+      document.body.style.userSelect = '';
+      splitterV.removeEventListener('pointermove', onMove);
+      splitterV.removeEventListener('pointerup',   onUp);
+    }
+    splitterV.addEventListener('pointermove', onMove);
+    splitterV.addEventListener('pointerup',   onUp);
+  });
+
+  // Horizontal splitter: drag up/down changes --dg-row1
+  splitterH.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    splitterH.setPointerCapture(e.pointerId);
+    const startY      = e.clientY;
+    const startHeight = splitterH.getBoundingClientRect().top - grid.getBoundingClientRect().top;
+    document.body.style.cursor     = 'row-resize';
+    document.body.style.userSelect = 'none';
+
+    function onMove(e) {
+      const gridH = grid.getBoundingClientRect().height;
+      const newH  = Math.max(MIN_ROW, Math.min(startHeight + (e.clientY - startY), gridH - SPLIT - MIN_ROW));
+      grid.style.setProperty('--dg-row1', newH + 'px');
+    }
+    function onUp() {
+      document.body.style.cursor     = '';
+      document.body.style.userSelect = '';
+      splitterH.removeEventListener('pointermove', onMove);
+      splitterH.removeEventListener('pointerup',   onUp);
+    }
+    splitterH.addEventListener('pointermove', onMove);
+    splitterH.addEventListener('pointerup',   onUp);
+  });
+}
+
 export function initDiagramContainer(container) {
   if (_bundleAC)  { _bundleAC.abort();  _bundleAC  = null; }
   if (_circuitAC) { _circuitAC.abort(); _circuitAC = null; }
@@ -331,8 +387,14 @@ export function initDiagramContainer(container) {
   _initMaximizeBtn(btnMax3, pane3);
   controls3.appendChild(btnMax3);
 
-  grid.append(pane1, pane2, pane3);
+  const splitterV = document.createElement('div');
+  splitterV.className = 'dg-splitter-v';
+  const splitterH = document.createElement('div');
+  splitterH.className = 'dg-splitter-h';
+
+  grid.append(pane1, splitterH, pane3, splitterV, pane2);
   container.appendChild(grid);
+  _initDiagramSplitters(grid, splitterV, splitterH);
 
   _initBundleZoom(_svgBundle);
   _initPhasorZoom(_svgPhasor);
