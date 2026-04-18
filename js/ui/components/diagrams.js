@@ -188,6 +188,8 @@ let _lastOutputs  = null;  // last outputs from updateDiagrams
 let _viewPhasor   = { zoom: 1, panX: 0, panY: 0 };
 let _phasorAC     = null;
 let _phasorG      = null;
+let _phasorLabels    = true;  // show arm names + values table
+let _phasorLegendEl = null;   // DOM element for V/I scale legend in bottom bar
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
@@ -257,8 +259,9 @@ export function initDiagramContainer(container) {
   _bundleG     = null;
   _annotG      = null;
   _circuitG    = null;
-  _phasorG     = null;
-  _bottomBar   = null;
+  _phasorG        = null;
+  _phasorLegendEl = null;
+  _bottomBar      = null;
   _viewCircuit = { zoom: 1, panX: 0, panY: 0 };
   _viewPhasor  = { zoom: 1, panX: 0, panY: 0 };
 
@@ -368,6 +371,32 @@ export function initDiagramContainer(container) {
   const svgWrap3 = document.createElement('div');
   svgWrap3.className = 'dpane-svg-wrap';
   svgWrap3.appendChild(_svgPhasor);
+
+  const bottomBar3 = document.createElement('div');
+  bottomBar3.className = 'dpane-bottom-bar';
+  bottomBar3.style.cssText = 'flex-direction:column;align-items:flex-start;';
+
+  _phasorLegendEl = document.createElement('div');
+  _phasorLegendEl.className = 'dpane-overlay-info';
+  _phasorLegendEl.style.cssText = 'white-space:normal;display:none;';
+  bottomBar3.appendChild(_phasorLegendEl);
+
+  const chkWrap3 = document.createElement('div');
+  chkWrap3.className = 'dpane-checkbox-wrap';
+  const chkLbls = document.createElement('input');
+  chkLbls.type    = 'checkbox';
+  chkLbls.id      = 'dpane-phasor-labels-chk';
+  chkLbls.checked = _phasorLabels;
+  chkLbls.addEventListener('change', () => {
+    _phasorLabels = chkLbls.checked;
+    if (_bs.inputs && _lastOutputs) _redrawPhasor(_bs.inputs, _lastOutputs);
+  });
+  const lblLbls = document.createElement('label');
+  lblLbls.setAttribute('for', 'dpane-phasor-labels-chk');
+  lblLbls.textContent = 'Labels';
+  chkWrap3.append(chkLbls, lblLbls);
+  bottomBar3.appendChild(chkWrap3);
+  svgWrap3.appendChild(bottomBar3);
   body3.appendChild(svgWrap3);
 
   // Zoom-reset button for phasor pane
@@ -1706,6 +1735,51 @@ function _phasorLabel(g, tx, ty, color, text, dx, dy) {
   g.appendChild(t);
 }
 
+/**
+ * Name-only label at the mid-point of a phasor arm, offset perpendicularly.
+ * (tx, ty) = absolute tip position; (dx, dy) = phasor direction vector.
+ */
+function _phasorArmLabel(g, tx, ty, color, name, dx, dy) {
+  if (!_phasorLabels) return;
+  const dist = Math.hypot(dx, dy);
+  if (dist < 10) return;
+  const mx = tx - dx / 2;
+  const my = ty - dy / 2;
+  const t = _el('text', {
+    x: mx, y: my,
+    'text-anchor': 'middle', 'dominant-baseline': 'middle',
+    'font-family': FONT, 'font-size': '10', fill: color,
+    stroke: '#fff', 'stroke-width': '3', 'stroke-linejoin': 'round',
+    'paint-order': 'stroke fill',
+  });
+  t.textContent = name;
+  g.appendChild(t);
+}
+
+/**
+ * Bottom-right value table.  entries = [{name, value, color}]
+ * Appended directly to svg (not the pannable g) so it stays fixed.
+ */
+function _phasorValuesTable(svg, sw, sh, entries) {
+  const ROW_H = 14, PAD_R = 8, PAD_B = 8;
+  const startY = sh - PAD_B - entries.length * ROW_H;
+  const tg = _el('g');
+  svg.appendChild(tg);
+  entries.forEach((entry, i) => {
+    const rowY = startY + i * ROW_H + ROW_H / 2;
+    const t = _el('text', {
+      x: sw - PAD_R, y: rowY,
+      'text-anchor': 'end', 'dominant-baseline': 'middle',
+      'font-family': FONT, 'font-size': '9', fill: '#333',
+    });
+    const nameSpan = _el('tspan', { fill: entry.color });
+    nameSpan.textContent = entry.name;
+    t.appendChild(nameSpan);
+    t.appendChild(document.createTextNode('\u00a0=\u00a0' + entry.value));
+    tg.appendChild(t);
+  });
+}
+
 /** Small gray dashed construction arrow (thin, small head) */
 function _conVec(g, ox, oy, dx, dy) {
   _phasorVec(g, ox, oy, dx, dy, '#888', '4,3', 6, 3);
@@ -1730,8 +1804,26 @@ function _conLabel(g, x1, y1, dx, dy, text) {
   g.appendChild(t);
 }
 
-/** Fixed-position scale legend appended directly to the SVG (not the pannable <g>). */
+/** Scale legend — updates the DOM bottom bar when live, falls back to SVG for PDF export. */
 function _phasorLegend(svg, sh, scale_V, scale_I, cV, cI) {
+  if (_phasorLegendEl) {
+    _phasorLegendEl.textContent = '';
+    const mkRow = (color, dashed, text) => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:4px;';
+      const sw = document.createElement('span');
+      sw.style.cssText = `display:inline-block;width:20px;height:0;border-bottom:2px ${dashed ? 'dashed' : 'solid'} ${color};flex-shrink:0;`;
+      const lb = document.createElement('span');
+      lb.textContent = text;
+      row.append(sw, lb);
+      return row;
+    };
+    _phasorLegendEl.appendChild(mkRow(cV, false, `Voltage\u2002(1\u2009kV\u00a0=\u00a0${scale_V.toFixed(1)}\u2009px)`));
+    _phasorLegendEl.appendChild(mkRow(cI, true,  `Current\u2002(1\u2009kA\u00a0=\u00a0${scale_I.toFixed(1)}\u2009px)`));
+    _phasorLegendEl.style.display = '';
+    return;
+  }
+  // SVG path (PDF export — no live DOM)
   const LX = 8, LY = sh - 36;
   const lg = _el('g');
   svg.appendChild(lg);
@@ -1825,13 +1917,15 @@ function _drawShortPhasor(g, svg, sw, sh, inputs, outputs) {
 
   g.appendChild(_el('circle', { cx: ox, cy: oy, r: 3, fill: '#333' }));
 
-  _phasorLabel(g, ox+vVR.x, oy+vVR.y, C_VR,
-    'VR\u00a0=\u00a0' + _fmtPhasor(VR_kV, 0, 'kV'), vVR.x, vVR.y);
-  _phasorLabel(g, ox+vVS.x, oy+vVS.y, C_VS,
-    'VS\u00a0=\u00a0' + _fmtPhasor(pVS.re, pVS.im, 'kV'), vVS.x, vVS.y);
-  _phasorLabel(g, ox+iIR.x, oy+iIR.y, C_I,
-    'IR\u00a0=\u00a0IS\u00a0=\u00a0' + _fmtPhasor(pIR.re, pIR.im, 'kA', 3), iIR.x, iIR.y);
+  _phasorArmLabel(g, ox+vVR.x, oy+vVR.y, C_VR, 'VR', vVR.x, vVR.y);
+  _phasorArmLabel(g, ox+vVS.x, oy+vVS.y, C_VS, 'VS', vVS.x, vVS.y);
+  _phasorArmLabel(g, ox+iIR.x, oy+iIR.y, C_I,  'IR\u00a0=\u00a0IS', iIR.x, iIR.y);
 
+  _phasorValuesTable(svg, sw, sh, [
+    { name: 'VR',                 value: _fmtPhasor(VR_kV, 0, 'kV'),              color: C_VR },
+    { name: 'VS',                 value: _fmtPhasor(pVS.re, pVS.im, 'kV'),        color: C_VS },
+    { name: 'IR\u00a0=\u00a0IS', value: _fmtPhasor(pIR.re, pIR.im, 'kA', 3),    color: C_I  },
+  ]);
   _phasorLegend(svg, sh, sV, sI, C_VR, C_I);
 }
 
@@ -1919,21 +2013,23 @@ function _drawNominalPiPhasor(g, svg, sw, sh, inputs, outputs) {
 
   g.appendChild(_el('circle', { cx: ox, cy: oy, r: 3, fill: '#333' }));
 
-  _phasorLabel(g, ox+vVR.x, oy+vVR.y, C_VR,
-    'VR\u00a0=\u00a0' + _fmtPhasor(VR_kV, 0, 'kV'), vVR.x, vVR.y);
-  _phasorLabel(g, ox+vVS.x, oy+vVS.y, C_VS,
-    'VS\u00a0=\u00a0' + _fmtPhasor(pVS.re, pVS.im, 'kV'), vVS.x, vVS.y);
-  _phasorLabel(g, ox+iIR.x, oy+iIR.y, C_IR,
-    'IR\u00a0=\u00a0' + _fmtPhasor(pIR.re, pIR.im, 'kA', 3), iIR.x, iIR.y);
-  _phasorLabel(g, ox+iIC1.x, oy+iIC1.y, C_IC,
-    'IC1\u00a0=\u00a0' + _fmtPhasor(pIC1.re, pIC1.im, 'kA', 3), iIC1.x, iIC1.y);
-  _phasorLabel(g, ox+iIL.x, oy+iIL.y, C_IL,
-    'IL\u00a0=\u00a0' + _fmtPhasor(pIL.re, pIL.im, 'kA', 3), iIL.x, iIL.y);
-  _phasorLabel(g, ox+iIC2.x, oy+iIC2.y, C_IC,
-    'IC2\u00a0=\u00a0' + _fmtPhasor(pIC2.re, pIC2.im, 'kA', 3), iIC2.x, iIC2.y);
-  _phasorLabel(g, ox+iIS.x, oy+iIS.y, C_IS,
-    'IS\u00a0=\u00a0' + _fmtPhasor(pIS.re, pIS.im, 'kA', 3), iIS.x, iIS.y);
+  _phasorArmLabel(g, ox+vVR.x,  oy+vVR.y,  C_VR, 'VR',  vVR.x,  vVR.y);
+  _phasorArmLabel(g, ox+vVS.x,  oy+vVS.y,  C_VS, 'VS',  vVS.x,  vVS.y);
+  _phasorArmLabel(g, ox+iIR.x,  oy+iIR.y,  C_IR, 'IR',  iIR.x,  iIR.y);
+  _phasorArmLabel(g, ox+iIC1.x, oy+iIC1.y, C_IC, 'IC1', iIC1.x, iIC1.y);
+  _phasorArmLabel(g, ox+iIL.x,  oy+iIL.y,  C_IL, 'IL',  iIL.x,  iIL.y);
+  _phasorArmLabel(g, ox+iIC2.x, oy+iIC2.y, C_IC, 'IC2', iIC2.x, iIC2.y);
+  _phasorArmLabel(g, ox+iIS.x,  oy+iIS.y,  C_IS, 'IS',  iIS.x,  iIS.y);
 
+  _phasorValuesTable(svg, sw, sh, [
+    { name: 'VR',  value: _fmtPhasor(VR_kV, 0, 'kV'),            color: C_VR },
+    { name: 'VS',  value: _fmtPhasor(pVS.re, pVS.im, 'kV'),      color: C_VS },
+    { name: 'IR',  value: _fmtPhasor(pIR.re, pIR.im, 'kA', 3),   color: C_IR },
+    { name: 'IC1', value: _fmtPhasor(pIC1.re, pIC1.im, 'kA', 3), color: C_IC },
+    { name: 'IL',  value: _fmtPhasor(pIL.re, pIL.im, 'kA', 3),   color: C_IL },
+    { name: 'IC2', value: _fmtPhasor(pIC2.re, pIC2.im, 'kA', 3), color: C_IC },
+    { name: 'IS',  value: _fmtPhasor(pIS.re, pIS.im, 'kA', 3),   color: C_IS },
+  ]);
   _phasorLegend(svg, sh, sV, sI, C_VR, C_IL);
 }
 
@@ -1971,15 +2067,17 @@ function _drawDistPhasor(g, svg, sw, sh, inputs, outputs) {
 
   g.appendChild(_el('circle', { cx: ox, cy: oy, r: 3, fill: '#333' }));
 
-  _phasorLabel(g, ox+vVR.x, oy+vVR.y, C_VR,
-    'VR\u00a0=\u00a0' + _fmtPhasor(VR_kV, 0, 'kV'), vVR.x, vVR.y);
-  _phasorLabel(g, ox+vVS.x, oy+vVS.y, C_VS,
-    'VS\u00a0=\u00a0' + _fmtPhasor(pVS.re, pVS.im, 'kV'), vVS.x, vVS.y);
-  _phasorLabel(g, ox+iIR.x, oy+iIR.y, C_IR,
-    'IR\u00a0=\u00a0' + _fmtPhasor(pIR.re, pIR.im, 'kA', 3), iIR.x, iIR.y);
-  _phasorLabel(g, ox+iIS.x, oy+iIS.y, C_IS,
-    'IS\u00a0=\u00a0' + _fmtPhasor(pIS.re, pIS.im, 'kA', 3), iIS.x, iIS.y);
+  _phasorArmLabel(g, ox+vVR.x, oy+vVR.y, C_VR, 'VR', vVR.x, vVR.y);
+  _phasorArmLabel(g, ox+vVS.x, oy+vVS.y, C_VS, 'VS', vVS.x, vVS.y);
+  _phasorArmLabel(g, ox+iIR.x, oy+iIR.y, C_IR, 'IR', iIR.x, iIR.y);
+  _phasorArmLabel(g, ox+iIS.x, oy+iIS.y, C_IS, 'IS', iIS.x, iIS.y);
 
+  _phasorValuesTable(svg, sw, sh, [
+    { name: 'VR', value: _fmtPhasor(VR_kV, 0, 'kV'),          color: C_VR },
+    { name: 'VS', value: _fmtPhasor(pVS.re, pVS.im, 'kV'),    color: C_VS },
+    { name: 'IR', value: _fmtPhasor(pIR.re, pIR.im, 'kA', 3), color: C_IR },
+    { name: 'IS', value: _fmtPhasor(pIS.re, pIS.im, 'kA', 3), color: C_IS },
+  ]);
   _phasorLegend(svg, sh, sV, sI, C_VR, C_IR);
 }
 
