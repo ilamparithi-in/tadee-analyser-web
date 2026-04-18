@@ -38,14 +38,14 @@
         <button>File</button>
         <div class="dropdown">
           <div class="dropdown-inner">
-            <button class="dropdown-item">New</button>
-            <button class="dropdown-item">Open…</button>
-            <button class="dropdown-item">Save</button>
-            <button class="dropdown-item" id="menu-save-as-pdf" disabled>Save As PDF…</button>
+            <button class="dropdown-item" id="menu-file-new">New</button>
+            <button class="dropdown-item" id="menu-file-open">Open…</button>
+            <button class="dropdown-item" id="menu-file-save">Save</button>
+            <div class="dropdown-item has-submenu" id="menu-export-trigger">Export result as&#x2026;</div>
             <hr class="dropdown-separator" />
-            <button class="dropdown-item">Print…</button>
+            <button class="dropdown-item" id="menu-file-print">Print…</button>
             <hr class="dropdown-separator" />
-            <button class="dropdown-item">Exit</button>
+            <button class="dropdown-item" id="menu-file-exit">Exit</button>
           </div>
         </div>
       </div>
@@ -365,6 +365,17 @@
   <script type="module" src="js/codeViewer.js"></script>
   <script type="module" src="js/calcViewer.js"></script>
   <script type="module" src="js/batchWindow.js"></script>
+
+  <!-- Export submenu flyout — position:fixed, shown via JS when hovering Export trigger -->
+  <!-- .submenu-panel = overflow:hidden clip  |  .submenu-inner = sliding Win98 card -->
+  <div id="submenu-export" class="submenu-panel">
+    <div class="submenu-inner">
+      <button class="dropdown-item menu-export-item" id="menu-export-pdf" disabled>PDF</button>
+      <button class="dropdown-item menu-export-item" id="menu-export-json" disabled>JSON</button>
+      <button class="dropdown-item menu-export-item" id="menu-export-txt" disabled>TXT</button>
+      <button class="dropdown-item menu-export-item" id="menu-export-md" disabled>Markdown (MD)</button>
+    </div>
+  </div>
 </div><!-- /#viewport -->
 
 <div id="taskbar">

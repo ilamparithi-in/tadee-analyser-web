@@ -337,6 +337,41 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
 }
 .dropdown-check[data-checked="true"]::before { content: '\2713'; }
 
+/* Submenu trigger item — arrow indicator on the right */
+.has-submenu { padding-right: 22px; cursor: default; -webkit-user-select: none; user-select: none; }
+.has-submenu::after {
+  content: '\25BA'; /* ► */
+  position: absolute;
+  right: 6px;
+  font-size: 8px;
+  line-height: inherit;
+  pointer-events: none;
+}
+/* Submenu flyout — mirrors the dropdown clip+card pattern, but horizontal */
+@keyframes slide-right {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
+}
+/* .submenu-panel = overflow:hidden clipping vessel (position:fixed, set by JS) */
+.submenu-panel {
+  display: none;
+  position: fixed;
+  z-index: 9999;
+  min-width: 140px;
+  overflow: hidden;
+}
+.submenu-panel.open { display: block; }
+/* .submenu-inner = Win98-styled card that slides in from the left */
+.submenu-inner {
+  padding: 2px 0;
+  background: silver;
+  box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #fff,
+              inset -2px -2px grey, inset 2px 2px #dfdfdf;
+}
+.submenu-panel.open .submenu-inner {
+  animation: slide-right 100ms steps(8, end) both;
+}
+
 /* ─── Context menu (right-click) ──────────────────────────────────────────── */
 /* .ctx-clip = overflow:hidden clipping vessel (position:fixed, set by JS)    */
 /* .ctx-inner = Win98-styled card, slides from bottom-left → top-right        */

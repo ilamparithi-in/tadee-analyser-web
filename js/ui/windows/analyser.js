@@ -10,11 +10,12 @@
  */
 
 import { initMenuBar }      from '../components/menuSystem.js';
+import { openBatchWindow, loadAndRunBatchEntries } from './batchWindow.js';
 import { initPanelLayout }  from '../components/panels.js';
 import { initResultsGrid }  from '../components/grid.js';
 import { initTooltips }     from '../components/tooltip.js';
 import { initUnitInputs, getBaseValue } from '../components/unitInput.js';
-import { showError, showWindowCloseConfirm } from '../components/errorDialog.js';
+import { showError, showConfirm, showWindowCloseConfirm } from '../components/errorDialog.js';
 import { showBalloon, hideBalloon }    from '../components/balloon.js';
 import { initDiagramContainer, updateDiagrams,
          renderArrangementSvgStr, renderCircuitSvgStr, renderPhasorSvgStr } from '../components/diagrams.js';
@@ -97,10 +98,10 @@ export function initAnalyserWindow(viewport) {
   if (btnLoad) btnLoad.addEventListener('click', () => _loadInputs(win));
 
   const btnExport = win.querySelector('#btn-export-output');
-  if (btnExport) btnExport.addEventListener('click', () => _exportPdf(win));
+  if (btnExport) btnExport.addEventListener('click', () => _exportOutput(win));
 
-  const menuSaveAsPdf = win.querySelector('#menu-save-as-pdf');
-  if (menuSaveAsPdf) menuSaveAsPdf.addEventListener('click', () => _exportPdf(win));
+  // File menu
+  _initFileMenu(win, viewport);
 
   // Spacing toggle (symmetric vs unsymmetric)
   _initSpacingToggle(win);
@@ -241,11 +242,8 @@ function _applyInputs(win, data) {
 }
 
 function _saveInputs(win) {
-  const data    = _collectInputs(win);
-  const now     = new Date();
-  const pad     = n => String(n).padStart(2, '0');
-  const stamp   = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}` +
-                  `-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+  const data  = _collectInputs(win);
+  const stamp = _timestamp();
   _triggerDownload(JSON.stringify(data, null, 2), `tadee-inputs_${stamp}.json`, 'application/json');
   const sb = win.querySelector('#sb-status');
   if (sb) sb.textContent = 'Saved';
@@ -253,10 +251,7 @@ function _saveInputs(win) {
 
 function _exportOutput(win) {
   if (!_lastResults) return;
-  const now   = new Date();
-  const pad   = n => String(n).padStart(2, '0');
-  const stamp = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}` +
-                `-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+  const stamp = _timestamp();
   _triggerDownload(JSON.stringify(_lastResults, null, 2), `tadee-output_${stamp}.json`, 'application/json');
   const sb = win.querySelector('#sb-status');
   if (sb) sb.textContent = 'Exported';
@@ -296,6 +291,37 @@ ${page2}</body>
   pw.print();
 }
 
+function _exportTxt(win) {
+  if (!_lastResults) return;
+  const lines = _lastResults.rows.map(([name, value, unit]) =>
+    unit ? `${name}\t${value}\t${unit}` : `${name}\t${value}`
+  );
+  const stamp = _timestamp();
+  _triggerDownload(lines.join('\n'), `tadee-results_${stamp}.txt`, 'text/plain');
+  const sb = win.querySelector('#sb-status');
+  if (sb) sb.textContent = 'Exported';
+}
+
+function _exportMd(win) {
+  if (!_lastResults) return;
+  const rows = [
+    '| Parameter | Value | Unit |',
+    '| --- | --- | --- |',
+    ..._lastResults.rows.map(([name, value, unit]) => `| ${name} | ${value} | ${unit} |`),
+  ];
+  const stamp = _timestamp();
+  _triggerDownload(rows.join('\n'), `tadee-results_${stamp}.md`, 'text/markdown');
+  const sb = win.querySelector('#sb-status');
+  if (sb) sb.textContent = 'Exported';
+}
+
+function _timestamp() {
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  return `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}` +
+         `-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+}
+
 function _triggerDownload(content, filename, mime) {
   const blob = new Blob([content], { type: mime });
   const url  = URL.createObjectURL(blob);
@@ -333,6 +359,217 @@ function _loadInputs(win) {
     reader.readAsText(file);
   });
   input.click();
+}
+
+// ─── File menu ───────────────────────────────────────────────────────────────
+
+function _clearInputs(win) {
+  INPUT_FIELDS.forEach(([id]) => {
+    const el = win.querySelector('#' + id);
+    if (el) el.value = '';
+  });
+  // Reset selects to their first option (default)
+  SELECT_FIELDS.forEach(id => {
+    const el = win.querySelector('#' + id);
+    if (el) el.selectedIndex = 0;
+  });
+  win.querySelector('#system-type')?.dispatchEvent(new Event('change'));
+  const sb = win.querySelector('#sb-status');
+  if (sb) sb.textContent = 'Ready';
+}
+
+/** Returns true if every element is a { inputs, outputs } batch-output entry. */
+function _isBatchOutputArray(data) {
+  return Array.isArray(data) && data.length > 0 &&
+    data.every(e => e !== null && typeof e === 'object' &&
+      e.inputs  !== null && typeof e.inputs  === 'object' &&
+      e.outputs !== null && typeof e.outputs === 'object');
+}
+
+/** Returns true if the JSON looks like a batch input file (array or columnar object)
+ *  but NOT a batch output file. */
+function _isBatchJson(data) {
+  if (Array.isArray(data)) return !_isBatchOutputArray(data);
+  if (data !== null && typeof data === 'object') {
+    const values = Object.values(data);
+    return values.length > 0 && values.every(v => Array.isArray(v));
+  }
+  return false;
+}
+
+/** Returns true if the JSON looks like a saved output file ({ inputs, outputs }). */
+function _isOutputJson(data) {
+  return data !== null && typeof data === 'object' &&
+    !Array.isArray(data) &&
+    data.inputs  !== null && typeof data.inputs  === 'object' &&
+    data.outputs !== null && typeof data.outputs === 'object';
+}
+
+/**
+ * Show the authenticity warning, then on confirm open/raise the batch window
+ * and re-run the batch using the saved input arrays as entries.
+ */
+function _openBatchOutputJson(viewport, data) {
+  showConfirm(
+    'Output values in this file may have been modified by an external source.\n\n' +
+    'The entries will be re-computed from their saved inputs to verify the results.',
+    () => {
+      const entries = data.map(e => e.inputs);
+      loadAndRunBatchEntries(viewport, entries);
+    }
+  );
+}
+
+/**
+ * Show the authenticity warning, then on confirm apply the saved inputs and
+ * re-run compute so the grid reflects verified results.
+ */
+function _openOutputJson(win, data) {
+  showConfirm(
+    'Output values in this file may have been modified by an external source.\n\n' +
+    'The inputs will be loaded and Compute will be run automatically to verify the results.',
+    () => {
+      // Translate numeric-coded fields back to the select option strings that
+      // _applyInputs expects (result.inputs stores computed integers, not raw
+      // select text values).
+      const MODEL_LABELS = ['Short', 'Nominal \u03c0', 'Distributed'];
+      const inputs = { ...data.inputs };
+      if (typeof inputs.symmetric === 'number')
+        inputs.symmetric = inputs.symmetric === 0 ? 'Unsymmetrical' : 'Symmetrical';
+      if (typeof inputs.model === 'number')
+        inputs.model = MODEL_LABELS[inputs.model] ?? 'Short';
+
+      const applied = _applyInputs(win, inputs);
+      if (applied === 0) {
+        showError('Invalid file format. The saved inputs could not be applied.');
+        return;
+      }
+      _compute(win);
+    }
+  );
+}
+
+function _initFileMenu(win, viewport) {
+  // New — clear all inputs with confirmation
+  win.querySelector('#menu-file-new')?.addEventListener('click', () => {
+    if (hasAnalyserInputs()) {
+      showConfirm('Clear all inputs?', () => _clearInputs(win));
+    } else {
+      _clearInputs(win);
+    }
+  });
+
+  // Open — detect input JSON vs batch JSON and route accordingly
+  win.querySelector('#menu-file-open')?.addEventListener('click', () => {
+    const picker = document.createElement('input');
+    picker.type   = 'file';
+    picker.accept = '.json,application/json';
+    picker.addEventListener('change', () => {
+      const file = picker.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        let data;
+        try { data = JSON.parse(e.target.result); }
+        catch { showError('Invalid file format. The selected file is not a valid JSON file.'); return; }
+
+        if (_isBatchJson(data)) {
+          openBatchWindow(viewport);
+        } else if (_isBatchOutputArray(data)) {
+          _openBatchOutputJson(viewport, data);
+        } else if (_isOutputJson(data)) {
+          _openOutputJson(win, data);
+        } else {
+          const applied = _applyInputs(win, data);
+          if (applied === 0) {
+            showError('Invalid file format. The selected file does not contain recognised input parameters.');
+            return;
+          }
+          const sb = win.querySelector('#sb-status');
+          if (sb) sb.textContent = 'Loaded';
+        }
+      };
+      reader.readAsText(file);
+    });
+    picker.click();
+  });
+
+  // Save — same as toolbar Save Input button
+  win.querySelector('#menu-file-save')?.addEventListener('click', () => _saveInputs(win));
+
+  // Print — generate report HTML then call print() (no download)
+  win.querySelector('#menu-file-print')?.addEventListener('click', () => {
+    if (!_lastResults) {
+      showError('No results to print. Run Compute first.');
+      return;
+    }
+    const { inputs, outputs } = _lastResults;
+    const svgs = {
+      arrangement: renderArrangementSvgStr(inputs,         700, 240),
+      circuit:     renderCircuitSvgStr(inputs, outputs,    700, 210),
+      phasor:      renderPhasorSvgStr(inputs,  outputs,    700, 260),
+    };
+    const page1 = buildReportPage(inputs, outputs, 1, 1);
+    const page2 = buildDiagramPage(inputs, svgs);
+    const html = `<!DOCTYPE html>\n<html lang="en">\n<head><meta charset="UTF-8"/>\n<title>Transmission Line Analysis Report</title>\n<style>${PDF_STYLES}</style>\n</head>\n<body>${page1}\n${page2}</body>\n</html>`;
+    const pw = window.open('', '_blank');
+    if (!pw) return;
+    pw.document.open();
+    pw.document.write(html);
+    pw.document.close();
+    pw.focus();
+    pw.print();
+  });
+
+  // Exit — same as title-bar Close button
+  win.querySelector('#menu-file-exit')?.addEventListener('click', () => {
+    if (win._closeGuard) {
+      win._closeGuard(() => win.querySelector('[aria-label="Close"]')?.click());
+    } else {
+      win.querySelector('[aria-label="Close"]')?.click();
+    }
+  });
+
+  // Export result as… submenu — position:fixed panel shown on hover
+  const exportTrigger = win.querySelector('#menu-export-trigger');
+  const exportPanel   = document.getElementById('submenu-export');
+
+  if (exportTrigger && exportPanel) {
+    let _closeTimer = null;
+
+    const _showPanel = () => {
+      clearTimeout(_closeTimer);
+      const dropdown = exportTrigger.closest('.dropdown');
+      const dr = (dropdown || exportTrigger).getBoundingClientRect();
+      const tr = exportTrigger.getBoundingClientRect();
+      exportPanel.style.left = dr.right + 'px';
+      exportPanel.style.top  = tr.top + 'px';
+      exportPanel.classList.add('open');
+    };
+
+    const _scheduleHide = () => {
+      _closeTimer = setTimeout(() => exportPanel.classList.remove('open'), 120);
+    };
+
+    exportTrigger.addEventListener('mouseenter', _showPanel);
+    exportTrigger.addEventListener('mouseleave', _scheduleHide);
+    exportPanel.addEventListener('mouseenter', () => clearTimeout(_closeTimer));
+    exportPanel.addEventListener('mouseleave', _scheduleHide);
+
+    // Close when hovering other items in the File menu
+    ['menu-file-new', 'menu-file-open', 'menu-file-save', 'menu-file-print', 'menu-file-exit'].forEach(id => {
+      win.querySelector('#' + id)?.addEventListener('mouseenter', () => exportPanel.classList.remove('open'));
+    });
+
+    // Close when the menu bar is dismissed (document click / switching to another menu)
+    document.addEventListener('click', () => exportPanel.classList.remove('open'));
+  }
+
+  // Export result as… button actions
+  win.querySelector('#menu-export-pdf')?.addEventListener('click',  () => _exportPdf(win));
+  win.querySelector('#menu-export-json')?.addEventListener('click', () => _exportOutput(win));
+  win.querySelector('#menu-export-txt')?.addEventListener('click',  () => _exportTxt(win));
+  win.querySelector('#menu-export-md')?.addEventListener('click',   () => _exportMd(win));
 }
 
 function _initViewMenu(win) {
@@ -676,17 +913,17 @@ function _compute(win) {
     if (_gridApi) _gridApi.setData(result.rows);
 
     // ── Store results for Export Output / PDF ─────────────────────────────────
-    _lastResults = { inputs: result.inputs, outputs: result.outputs };
+    _lastResults = { inputs: result.inputs, outputs: result.outputs, rows: result.rows };
     const btnExport = win.querySelector('#btn-export-output');
     if (btnExport) btnExport.disabled = false;
-    const menuPdf = win.querySelector('#menu-save-as-pdf');
-    if (menuPdf) menuPdf.disabled = false;
+    document.querySelectorAll('.menu-export-item').forEach(el => { el.disabled = false; });
 
     updateDiagrams(result.inputs, result.outputs);
 
     const elapsed = (performance.now() - t0).toFixed(1);
     if (sbTime)   sbTime.textContent   = `Time: ${elapsed} ms`;
     if (sbStatus) sbStatus.textContent = 'Done';
+    try { new Audio('media/ding.mp3').play(); } catch { /* ignore */ }
   } catch (e) {
     if (sbStatus) sbStatus.textContent = 'Compute error';
     showError(e?.message ?? 'Unknown computation error.');

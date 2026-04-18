@@ -49,6 +49,39 @@ export function initBatchWindow(viewport) {
   });
 }
 
+export function openBatchWindow(viewport) {
+  _openOrRaise(viewport);
+}
+
+/**
+ * Open (or raise) the batch window, inject a pre-parsed entries array,
+ * switch the UI to JSON mode, and run the batch immediately.
+ * entries must be an array of lineParams base-unit objects.
+ */
+export function loadAndRunBatchEntries(viewport, entries) {
+  _openOrRaise(viewport);
+  // _win is now guaranteed to exist
+  _parsedEntries = entries;
+
+  // Switch UI to JSON mode
+  const jsonRadio  = _win.querySelector('#batch-mode-json');
+  const rangePanel = _win.querySelector('#batch-range-panel');
+  const jsonPanel  = _win.querySelector('#batch-json-panel');
+  if (jsonRadio)  jsonRadio.checked         = true;
+  if (rangePanel) rangePanel.style.display  = 'none';
+  if (jsonPanel)  jsonPanel.style.display   = '';
+
+  const fileName   = _win.querySelector('#batch-file-name');
+  const jsonStatus = _win.querySelector('#batch-json-status');
+  if (fileName)   fileName.textContent   = '(imported from output file)';
+  if (jsonStatus) {
+    jsonStatus.textContent = `${entries.length} entr${entries.length === 1 ? 'y' : 'ies'} loaded.`;
+    jsonStatus.style.color = '#000';
+  }
+
+  _runBatch(_win);
+}
+
 // ─── Window lifecycle ─────────────────────────────────────────────────────────
 function _openOrRaise(viewport) {
   if (_win) {
@@ -493,6 +526,7 @@ function _runBatch(win) {
   // ── Compute ────────────────────────────────────────────────────────────────
   _results = [];
   let errorCount = 0;
+  const t0 = performance.now();
 
   for (let i = 0; i < entries.length; i++) {
     // Coerce all numeric fields (JSON may have string values)
@@ -523,12 +557,13 @@ function _runBatch(win) {
   _idx = 0;
   _renderEntry(win);
 
-  const total = _results.length;
+  const total   = _results.length;
+  const elapsed = (performance.now() - t0).toFixed(1);
   if (errorCount === 0) {
-    statusEl.textContent = `Done — ${total} entr${total === 1 ? 'y' : 'ies'} computed.`;
+    statusEl.textContent = `Done — ${total} entr${total === 1 ? 'y' : 'ies'} computed. (${elapsed} ms)`;
     statusEl.style.color = '#000';
   } else {
-    statusEl.textContent = `Done — ${total - errorCount} ok, ${errorCount} error${errorCount > 1 ? 's' : ''}.`;
+    statusEl.textContent = `Done — ${total - errorCount} ok, ${errorCount} error${errorCount > 1 ? 's' : ''}. (${elapsed} ms)`;
     statusEl.style.color = '#c00';
   }
 }
