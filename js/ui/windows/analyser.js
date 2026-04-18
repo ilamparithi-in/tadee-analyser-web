@@ -11,6 +11,9 @@
 
 import { initMenuBar }      from '../components/menuSystem.js';
 import { openBatchWindow, loadAndRunBatchEntries } from './batchWindow.js';
+import { openPreferencesWindow } from './preferencesWindow.js';
+import { openHelpWindow }        from './helpWindow.js';
+import { openAboutWindow }       from './aboutWindow.js';
 import { initPanelLayout }  from '../components/panels.js';
 import { initResultsGrid }  from '../components/grid.js';
 import { initTooltips }     from '../components/tooltip.js';
@@ -102,6 +105,17 @@ export function initAnalyserWindow(viewport) {
 
   // File menu
   _initFileMenu(win, viewport);
+
+  // Edit menu
+  const menuPreferences = document.getElementById('menu-preferences');
+  if (menuPreferences) menuPreferences.addEventListener('click', () => openPreferencesWindow(viewport));
+
+  // Tools menu
+  _initToolsMenu(win, viewport);
+
+  // Help menu
+  document.getElementById('menu-help-topics')?.addEventListener('click', () => openHelpWindow(viewport));
+  document.getElementById('menu-about')?.addEventListener('click',       () => openAboutWindow(viewport));
 
   // Spacing toggle (symmetric vs unsymmetric)
   _initSpacingToggle(win);
@@ -696,12 +710,70 @@ function _initFileMenu(win, viewport) {
   document.getElementById('menu-export-md')?.addEventListener('click',   () => _exportMd(win));
 }
 
+function _openFilePicker(accept, onData) {
+  const picker = document.createElement('input');
+  picker.type   = 'file';
+  picker.accept = accept;
+  picker.addEventListener('change', () => {
+    const file = picker.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => onData(e.target.result, file.name);
+    reader.readAsText(file);
+  });
+  picker.click();
+}
+
+function _initToolsMenu(win, viewport) {
+  // Import Input JSON — same routing as File → Open but restricted to input JSON
+  document.getElementById('menu-import-input')?.addEventListener('click', () => {
+    _openFilePicker('.json,application/json', (text) => {
+      let data;
+      try { data = JSON.parse(text); }
+      catch { showError('Invalid file format. The selected file is not a valid JSON file.'); return; }
+
+      if (_isBatchJson(data)) {
+        openBatchWindow(viewport);
+        return;
+      }
+      if (_isBatchOutputArray(data) || _isOutputJson(data)) {
+        showError('This file contains output results, not input parameters.\nUse Tools → Import Output JSON to load it.');
+        return;
+      }
+      const applied = _applyInputs(win, data);
+      if (applied === 0) {
+        showError('Invalid file format. The selected file does not contain recognised input parameters.');
+        return;
+      }
+      const sb = win.querySelector('#sb-status');
+      if (sb) sb.textContent = 'Loaded';
+    });
+  });
+
+  // Import Output JSON — always enabled; shows authenticity warning then loads
+  document.getElementById('menu-import-output')?.addEventListener('click', () => {
+    _openFilePicker('.json,application/json', (text) => {
+      let data;
+      try { data = JSON.parse(text); }
+      catch { showError('Invalid file format. The selected file is not a valid JSON file.'); return; }
+
+      if (_isBatchOutputArray(data)) {
+        _openBatchOutputJson(viewport, data);
+      } else if (_isOutputJson(data)) {
+        _openOutputJson(win, data);
+      } else {
+        showError('This file does not appear to contain output results.\nUse Tools → Import Input JSON to load input parameters.');
+      }
+    });
+  });
+}
+
 function _initViewMenu(win) {
-  const topRow    = win.querySelector('#panel-top-row');
-  const panelLeft = win.querySelector('#panel-left');
-  const splitterV = win.querySelector('#splitter-v');
+  const topRow      = win.querySelector('#panel-top-row');
+  const panelLeft   = win.querySelector('#panel-left');
+  const splitterV   = win.querySelector('#splitter-v');
   const panelRight  = win.querySelector('#panel-right');
-  const splitterH = win.querySelector('#splitter-h');
+  const splitterH   = win.querySelector('#splitter-h');
   const panelBottom = win.querySelector('#panel-bottom');
 
   function _apply() {
@@ -728,7 +800,60 @@ function _initViewMenu(win) {
     if (splitterH) splitterH.style.display = ((leftInLayout || rightInLayout) && bottomInLayout) ? '' : 'none';
   }
 
-  ['view-pane-input', 'view-pane-canvas', 'view-pane-output'].forEach(id => {
+  // Individual diagram pane visibility (queried lazily as container is built after init)
+  function _applyDiagrams() {
+    const container = win.querySelector('#canvas-container');
+    if (!container) return;
+    const showArr = document.getElementById('view-canvas-arrangement')?.dataset.checked === 'true';
+    const showPha = document.getElementById('view-canvas-phasor')?.dataset.checked      === 'true';
+    const showCir = document.getElementById('view-canvas-circuit')?.dataset.checked     === 'true';
+
+    const paneArr = container.querySelector('.dpane-arrangement');
+    const panePha = container.querySelector('.dpane-phasor');
+    const paneCir = container.querySelector('.dpane-circuit');
+    const splV    = container.querySelector('.dg-splitter-v');
+    const splH    = container.querySelector('.dg-splitter-h');
+
+    if (paneArr) paneArr.style.display = showArr ? '' : 'none';
+    if (panePha) panePha.style.display = showPha ? '' : 'none';
+    if (paneCir) paneCir.style.display = showCir ? '' : 'none';
+
+    // Reset any previously applied grid overrides before re-evaluating
+    [paneArr, panePha, paneCir].forEach(p => {
+      if (p) { p.style.gridColumn = ''; p.style.gridRow = ''; }
+    });
+    if (splV) splV.style.display = '';
+    if (splH) splH.style.display = '';
+
+    const activeCount = [showArr, showPha, showCir].filter(Boolean).length;
+
+    if (activeCount === 1) {
+      // Single active pane fills the whole grid
+      const solo = showArr ? paneArr : showPha ? panePha : paneCir;
+      if (solo) { solo.style.gridColumn = '1 / span 3'; solo.style.gridRow = '1 / span 3'; }
+      if (splV) splV.style.display = 'none';
+      if (splH) splH.style.display = 'none';
+    } else if (showArr && showPha && !showCir) {
+      // Arrangement + Phasor only: both span the full width; hide vertical splitter
+      if (paneArr) paneArr.style.gridColumn = '1 / span 3';
+      if (panePha) panePha.style.gridColumn = '1 / span 3';
+      if (splV)    splV.style.display = 'none';
+      // splH stays visible between arrangement (row 1) and phasor (row 3)
+    }
+    // All other cases (all three on, or any two-pane combo involving circuit): CSS defaults
+
+    // Sync parent "Whole pane" and canvas pane check states
+    const allOn = showArr && showPha && showCir;
+    const anyOn = showArr || showPha || showCir;
+    const wholeBtn  = document.getElementById('view-canvas-whole');
+    const canvasBtn = document.getElementById('view-pane-canvas');
+    if (wholeBtn)  wholeBtn.dataset.checked  = allOn ? 'true' : 'false';
+    if (canvasBtn) canvasBtn.dataset.checked = anyOn ? 'true' : 'false';
+    _apply();
+  }
+
+  // Wire simple check-toggle items
+  ['view-pane-input', 'view-pane-output'].forEach(id => {
     const btn = document.getElementById(id);
     if (!btn) return;
     btn.addEventListener('click', () => {
@@ -736,6 +861,66 @@ function _initViewMenu(win) {
       _apply();
     });
   });
+
+  // "Whole pane" — show or hide all three diagrams at once
+  const wholeBtn = document.getElementById('view-canvas-whole');
+  if (wholeBtn) {
+    wholeBtn.addEventListener('click', () => {
+      const newVal = wholeBtn.dataset.checked === 'true' ? 'false' : 'true';
+      ['view-canvas-arrangement', 'view-canvas-phasor', 'view-canvas-circuit'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.dataset.checked = newVal;
+      });
+      wholeBtn.dataset.checked = newVal;
+      const canvasBtn = document.getElementById('view-pane-canvas');
+      if (canvasBtn) canvasBtn.dataset.checked = newVal;
+      _applyDiagrams();
+    });
+  }
+
+  // Individual diagram toggles
+  ['view-canvas-arrangement', 'view-canvas-phasor', 'view-canvas-circuit'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+      btn.dataset.checked = btn.dataset.checked === 'true' ? 'false' : 'true';
+      _applyDiagrams();
+    });
+  });
+
+  // Canvas submenu flyout
+  const canvasTrigger = document.getElementById('view-pane-canvas');
+  const canvasPanel   = document.getElementById('submenu-canvas');
+
+  if (canvasTrigger && canvasPanel) {
+    let _closeTimer = null;
+
+    const _showPanel = () => {
+      clearTimeout(_closeTimer);
+      const dropdown = canvasTrigger.closest('.dropdown');
+      const dr = (dropdown || canvasTrigger).getBoundingClientRect();
+      const tr = canvasTrigger.getBoundingClientRect();
+      canvasPanel.style.left = dr.right + 'px';
+      canvasPanel.style.top  = tr.top + 'px';
+      canvasPanel.classList.add('open');
+    };
+
+    const _scheduleHide = () => {
+      _closeTimer = setTimeout(() => canvasPanel.classList.remove('open'), 120);
+    };
+
+    canvasTrigger.addEventListener('mouseenter', _showPanel);
+    canvasTrigger.addEventListener('mouseleave', _scheduleHide);
+    canvasPanel.addEventListener('mouseenter', () => clearTimeout(_closeTimer));
+    canvasPanel.addEventListener('mouseleave', _scheduleHide);
+
+    // Close when hovering other View menu items
+    ['view-pane-input', 'view-pane-output'].forEach(id => {
+      document.getElementById(id)?.addEventListener('mouseenter', () => canvasPanel.classList.remove('open'));
+    });
+
+    document.addEventListener('click', () => canvasPanel.classList.remove('open'));
+  }
 }
 
 function _initSpacingToggle(win) {
@@ -894,7 +1079,7 @@ const SB_HINTS = {
   'menu-save-as-pdf':   'Generate a formatted PDF report of the input parameters and computed results',
   // View menu check items
   'view-pane-input':    'Show or hide the input parameters pane',
-  'view-pane-canvas':   'Show or hide the conductor geometry canvas',
+  'view-pane-canvas':   'Show or hide individual canvas diagram panes',
   'view-pane-output':   'Show or hide the results output pane',
   // Electrical inputs
   'line-length':        'Total length of the three-phase transmission line',

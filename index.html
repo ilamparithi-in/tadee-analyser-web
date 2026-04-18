@@ -53,14 +53,7 @@
         <button>Edit</button>
         <div class="dropdown">
           <div class="dropdown-inner">
-            <button class="dropdown-item" disabled>Undo</button>
-            <hr class="dropdown-separator" />
-            <button class="dropdown-item">Cut</button>
-            <button class="dropdown-item">Copy</button>
-            <button class="dropdown-item">Paste</button>
-            <button class="dropdown-item">Delete</button>
-            <hr class="dropdown-separator" />
-            <button class="dropdown-item">Select All</button>
+            <button class="dropdown-item" id="menu-preferences">Preferences</button>
           </div>
         </div>
       </div>
@@ -69,8 +62,8 @@
         <div class="dropdown">
           <div class="dropdown-inner">
             <button class="dropdown-item dropdown-check" data-checked="true" id="view-pane-input">Input pane</button>
-            <button class="dropdown-item dropdown-check" data-checked="true" id="view-pane-canvas">Canvas pane</button>
-            <button class="dropdown-item dropdown-check" data-checked="true" id="view-pane-output">Output pane</button>
+            <div class="dropdown-item dropdown-check has-submenu" data-checked="true" id="view-pane-canvas">Canvas pane</div>
+            <button class="dropdown-item dropdown-check" data-checked="true" id="view-pane-output">Results</button>
           </div>
         </div>
       </div>
@@ -78,8 +71,8 @@
         <button>Tools</button>
         <div class="dropdown">
           <div class="dropdown-inner">
-            <button class="dropdown-item">Options…</button>
-            <button class="dropdown-item">Preferences…</button>
+            <button class="dropdown-item" id="menu-import-input">Import Input JSON…</button>
+            <button class="dropdown-item" id="menu-import-output">Import Output JSON…</button>
             <hr class="dropdown-separator" />
             <button class="dropdown-item" id="menu-batch-mode">Batch Mode…</button>
           </div>
@@ -89,9 +82,9 @@
         <button>Help</button>
         <div class="dropdown">
           <div class="dropdown-inner">
-            <button class="dropdown-item">Help Topics</button>
+            <button class="dropdown-item" id="menu-help-topics">Help Topics</button>
             <hr class="dropdown-separator" />
-            <button class="dropdown-item">About TADEE Analyser</button>
+            <button class="dropdown-item" id="menu-about">About…</button>
           </div>
         </div>
       </div>
@@ -374,6 +367,15 @@
       <button class="dropdown-item menu-export-item" id="menu-export-json" disabled>JSON</button>
       <button class="dropdown-item menu-export-item" id="menu-export-txt" disabled>TXT</button>
       <button class="dropdown-item menu-export-item" id="menu-export-md" disabled>Markdown (MD)</button>
+    </div>
+  </div>
+  <div id="submenu-canvas" class="submenu-panel">
+    <div class="submenu-inner">
+      <button class="dropdown-item dropdown-check" data-checked="true" id="view-canvas-whole">Whole pane</button>
+      <hr class="dropdown-separator" />
+      <button class="dropdown-item dropdown-check" data-checked="true" id="view-canvas-arrangement">Arrangement</button>
+      <button class="dropdown-item dropdown-check" data-checked="true" id="view-canvas-phasor">Phasor</button>
+      <button class="dropdown-item dropdown-check" data-checked="true" id="view-canvas-circuit">Circuit</button>
     </div>
   </div>
 </div><!-- /#viewport -->
