@@ -37,10 +37,7 @@ function _ensureDOM() {
       </div>
     </div>
     <div class="window-body" style="display:flex;gap:12px;align-items:flex-start;padding:12px 12px 8px;">
-      <div aria-hidden="true" style="
-        flex:0 0 32px;height:32px;
-        background:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22><circle cx=%2216%22 cy=%2216%22 r=%2215%22 fill=%22%23ff0000%22/><text x=%2216%22 y=%2223%22 text-anchor=%22middle%22 font-family=%22serif%22 font-size=%2224%22 font-weight=%22bold%22 fill=%22white%22>%D7</text></svg>') center/contain no-repeat;">
-      </div>
+      <img src="media/icons/msg_error-0.png" width="32" height="32" alt="" style="flex:0 0 32px;">
       <p id="err-dialog-msg" style="margin:0;font-size:11px;line-height:1.5;word-break:break-word;"></p>
     </div>
     <div style="display:flex;justify-content:center;padding:4px 12px 10px;">

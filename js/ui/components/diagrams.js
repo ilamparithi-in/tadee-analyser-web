@@ -163,6 +163,7 @@ let _bundleAC = null;
 let _toScale = false;
 
 // HTML overlay elements for pane 1 bottom bar (set in initDiagramContainer)
+let _bottomBar     = null;
 let _overlayRadius = null;
 let _overlayScale  = null;
 
@@ -179,17 +180,26 @@ let _circuitAC    = null;
 let _circuitG     = null;
 let _lastOutputs  = null;  // last outputs from updateDiagrams
 
+// Zoom/pan state for Pane 3 (phasor diagram — CSS transform on _phasorG)
+let _viewPhasor   = { zoom: 1, panX: 0, panY: 0 };
+let _phasorAC     = null;
+let _phasorG      = null;
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 export function initDiagramContainer(container) {
   if (_bundleAC)  { _bundleAC.abort();  _bundleAC  = null; }
   if (_circuitAC) { _circuitAC.abort(); _circuitAC = null; }
+  if (_phasorAC)  { _phasorAC.abort();  _phasorAC  = null; }
 
   container.innerHTML = '';
   _bs.inputs   = null;
   _bundleG     = null;
   _circuitG    = null;
+  _phasorG     = null;
+  _bottomBar   = null;
   _viewCircuit = { zoom: 1, panX: 0, panY: 0 };
+  _viewPhasor  = { zoom: 1, panX: 0, panY: 0 };
 
   const grid = document.createElement('div');
   grid.className = 'diagram-grid';
@@ -229,6 +239,7 @@ export function initDiagramContainer(container) {
   _overlayScale.className = 'dpane-overlay-info dpane-overlay-scale';
 
   bottomBar.append(chkWrap, _overlayRadius, _overlayScale);
+  _bottomBar = bottomBar;
   svgWrap.append(_svgBundle, bottomBar);
   body1.appendChild(svgWrap);
 
@@ -291,7 +302,24 @@ export function initDiagramContainer(container) {
 
   const [pane3, body3, controls3] = _makePane('Phasor Diagram', 'dpane-phasor');
   _svgPhasor = _mkSvg();
-  body3.appendChild(_svgPhasor);
+  _svgPhasor.style.cursor = 'grab';
+
+  const svgWrap3 = document.createElement('div');
+  svgWrap3.className = 'dpane-svg-wrap';
+  svgWrap3.appendChild(_svgPhasor);
+  body3.appendChild(svgWrap3);
+
+  // Zoom-reset button for phasor pane
+  const btnZoomReset3 = document.createElement('button');
+  btnZoomReset3.className       = 'dpane-btn';
+  btnZoomReset3.textContent     = '\u2316';
+  btnZoomReset3.dataset.tooltip = 'Reset zoom';
+  btnZoomReset3.addEventListener('click', () => {
+    _viewPhasor = { zoom: 1, panX: 0, panY: 0 };
+    if (_phasorG) _phasorG.setAttribute('transform', '');
+  });
+  controls3.appendChild(btnZoomReset3);
+
   const btnMax3 = document.createElement('button');
   btnMax3.className   = 'dpane-btn';
   btnMax3.textContent = '\u25A1';
@@ -302,6 +330,7 @@ export function initDiagramContainer(container) {
   container.appendChild(grid);
 
   _initBundleZoom(_svgBundle);
+  _initPhasorZoom(_svgPhasor);
   _drawArrangementPlaceholder();
   _drawStaticPlaceholder(_svgCircuit);
   _drawStaticPlaceholder(_svgPhasor);
@@ -313,6 +342,7 @@ export function updateDiagrams(inputs, outputs) {
   _fitBundleView();
   _redrawArrangement();
   _redrawCircuit(inputs, outputs);
+  _redrawPhasor(inputs, outputs);
 }
 
 // ─── Sub-conductor bundle geometry ───────────────────────────────────────────
@@ -503,6 +533,76 @@ function _applyCircuitTransform() {
     `translate(${_viewCircuit.panX},${_viewCircuit.panY}) scale(${_viewCircuit.zoom})`);
 }
 
+function _initPhasorZoom(svg) {
+  _phasorAC = new AbortController();
+  const sig = { signal: _phasorAC.signal };
+
+  svg.addEventListener('wheel', e => {
+    e.preventDefault();
+    const rect   = svg.getBoundingClientRect();
+    const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+    const px = e.clientX - rect.left, py = e.clientY - rect.top;
+    _viewPhasor.panX = px + (_viewPhasor.panX - px) * factor;
+    _viewPhasor.panY = py + (_viewPhasor.panY - py) * factor;
+    _viewPhasor.zoom *= factor;
+    _applyPhasorTransform();
+  }, { passive: false, ...sig });
+
+  let drag = null;
+  svg.addEventListener('mousedown', e => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    drag = { x: e.clientX, y: e.clientY };
+    svg.style.cursor = 'grabbing';
+  }, sig);
+  window.addEventListener('mousemove', e => {
+    if (!drag) return;
+    _viewPhasor.panX += e.clientX - drag.x;
+    _viewPhasor.panY += e.clientY - drag.y;
+    drag = { x: e.clientX, y: e.clientY };
+    _applyPhasorTransform();
+  }, sig);
+  window.addEventListener('mouseup', () => {
+    drag = null;
+    if (svg) svg.style.cursor = 'grab';
+  }, sig);
+
+  let pinch = null;
+  svg.addEventListener('touchstart', e => {
+    if (e.touches.length === 2) {
+      const rect = svg.getBoundingClientRect();
+      pinch = {
+        dist: _touchDist(e.touches),
+        mx: (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left,
+        my: (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top,
+      };
+    }
+  }, { passive: true, ...sig });
+  svg.addEventListener('touchmove', e => {
+    if (e.touches.length === 2 && pinch) {
+      e.preventDefault();
+      const d = _touchDist(e.touches);
+      const f = d / pinch.dist;
+      _viewPhasor.panX = pinch.mx + (_viewPhasor.panX - pinch.mx) * f;
+      _viewPhasor.panY = pinch.my + (_viewPhasor.panY - pinch.my) * f;
+      _viewPhasor.zoom *= f;
+      pinch.dist = d;
+      _applyPhasorTransform();
+    }
+  }, { passive: false, ...sig });
+  svg.addEventListener('touchend', () => { pinch = null; }, { passive: true, ...sig });
+
+  new ResizeObserver(() => {
+    if (_bs.inputs && _lastOutputs) _redrawPhasor(_bs.inputs, _lastOutputs);
+  }).observe(svg);
+}
+
+function _applyPhasorTransform() {
+  if (!_phasorG) return;
+  _phasorG.setAttribute('transform',
+    `translate(${_viewPhasor.panX},${_viewPhasor.panY}) scale(${_viewPhasor.zoom})`);
+}
+
 /**
  * Compute the three phase centre positions in metres, centred at the
  * world origin (centroid).  Returns { A:[x,y], B:[x,y], C:[x,y] }.
@@ -586,10 +686,12 @@ function _redrawArrangement() {
   if (!_bs.inputs) {
     if (_overlayRadius) _overlayRadius.textContent = '';
     if (_overlayScale)  _overlayScale.textContent  = '';
+    if (_bottomBar)     _bottomBar.style.display   = 'none';
     _drawArrangementPlaceholder();
     _applyViewTransform();
     return;
   }
+  if (_bottomBar) _bottomBar.style.display = '';
 
   const { scCount, scStrands, strandDiaM, scSpacingM } = _bs.inputs;
   const { tx, ty, scale } = _bs;
@@ -1403,6 +1505,340 @@ function _drawScaleBadge() {
 }
 
 // ─── Placeholders ─────────────────────────────────────────────────────────────
+
+// ─── Pane 3: Phasor Diagram ───────────────────────────────────────────────────
+
+/** Complex addition for plain {re,im} objects */
+function cAdd(a, b) { return { re: a.re + b.re, im: a.im + b.im }; }
+/** Complex magnitude */
+function cMag(p)    { return Math.hypot(p.re, p.im); }
+
+/**
+ * Draw a coloured arrow from (ox, oy) by (dx, dy) in screen coords.
+ * Optionally dashed. AL/AW = arrowhead length/half-width (optional, defaults 9/4.5).
+ */
+function _phasorVec(g, ox, oy, dx, dy, color, dashArray = null, AL = 9, AW = 4.5) {
+  const tx = ox + dx, ty = oy + dy;
+  const dist = Math.hypot(dx, dy);
+  if (dist < 5) return;
+  const udx = dx / dist, udy = dy / dist;
+  const attrs = {
+    x1: ox, y1: oy, x2: tx - udx * AL, y2: ty - udy * AL,
+    stroke: color, 'stroke-width': '1.8',
+  };
+  if (dashArray) attrs['stroke-dasharray'] = dashArray;
+  g.appendChild(_el('line', attrs));
+  g.appendChild(_el('polygon', {
+    points: [
+      `${tx.toFixed(2)},${ty.toFixed(2)}`,
+      `${(tx - udx*AL - udy*AW).toFixed(2)},${(ty - udy*AL + udx*AW).toFixed(2)}`,
+      `${(tx - udx*AL + udy*AW).toFixed(2)},${(ty - udy*AL - udx*AW).toFixed(2)}`,
+    ].join(' '),
+    fill: color,
+  }));
+}
+
+/**
+ * Label at a phasor tip, offset in the phasor direction.
+ * White-stroke knockout so it reads over any arrow.
+ */
+function _phasorLabel(g, tx, ty, color, text, dx, dy) {
+  const dist = Math.hypot(dx, dy);
+  const udx = dist > 0 ? dx / dist : 1;
+  const udy = dist > 0 ? dy / dist : 0;
+  const OFFSET = 14;
+  const lx = tx + udx * OFFSET;
+  const ly = ty + udy * OFFSET;
+  const anchor = udx > 0.25 ? 'start' : udx < -0.25 ? 'end' : 'middle';
+  const t = _el('text', {
+    x: lx, y: ly,
+    'text-anchor': anchor, 'dominant-baseline': 'middle',
+    'font-family': FONT, 'font-size': '10', fill: color,
+    stroke: '#fff', 'stroke-width': '3', 'stroke-linejoin': 'round',
+    'paint-order': 'stroke fill',
+  });
+  t.textContent = text;
+  g.appendChild(t);
+}
+
+/** Small gray dashed construction arrow (thin, small head) */
+function _conVec(g, ox, oy, dx, dy) {
+  _phasorVec(g, ox, oy, dx, dy, '#888', '4,3', 6, 3);
+}
+
+/**
+ * Small text at the midpoint of a construction segment,
+ * offset perpendicularly so it doesn't sit on the arrow.
+ */
+function _conLabel(g, x1, y1, dx, dy, text) {
+  const dist = Math.hypot(dx, dy);
+  if (dist < 4) return;
+  const nx = -dy / dist * 9, ny = dx / dist * 9;
+  const t = _el('text', {
+    x: x1 + dx / 2 + nx, y: y1 + dy / 2 + ny,
+    'text-anchor': 'middle', 'dominant-baseline': 'middle',
+    'font-family': FONT, 'font-size': '9', fill: '#666',
+    stroke: '#fff', 'stroke-width': '2.5', 'stroke-linejoin': 'round',
+    'paint-order': 'stroke fill',
+  });
+  t.textContent = text;
+  g.appendChild(t);
+}
+
+/** Fixed-position scale legend appended directly to the SVG (not the pannable <g>). */
+function _phasorLegend(svg, sh, scale_V, scale_I, cV, cI) {
+  const LX = 8, LY = sh - 36;
+  const lg = _el('g');
+  svg.appendChild(lg);
+  lg.appendChild(_el('line', { x1: LX, y1: LY, x2: LX + 22, y2: LY,
+    stroke: cV, 'stroke-width': '1.8' }));
+  const tV = _el('text', { x: LX + 27, y: LY, 'dominant-baseline': 'middle',
+    'font-family': FONT, 'font-size': '9', fill: '#333' });
+  tV.textContent = `Voltage\u2002(1\u2009kV\u00a0=\u00a0${scale_V.toFixed(1)}\u2009px)`;
+  lg.appendChild(tV);
+  const CY = LY + 13;
+  lg.appendChild(_el('line', { x1: LX, y1: CY, x2: LX + 22, y2: CY,
+    stroke: cI, 'stroke-width': '1.8', 'stroke-dasharray': '6,3' }));
+  const tI = _el('text', { x: LX + 27, y: CY, 'dominant-baseline': 'middle',
+    'font-family': FONT, 'font-size': '9', fill: '#333' });
+  tI.textContent = `Current\u2002(1\u2009kA\u00a0=\u00a0${scale_I.toFixed(1)}\u2009px)`;
+  lg.appendChild(tI);
+}
+
+/**
+ * Given a list of screen-relative points (relative to an unknown origin),
+ * return (ox, oy) — the screen position of the origin — so the whole diagram
+ * is centred with PAD margin on all sides.
+ */
+function _phasorOrigin(pts, sw, sh, PAD = 65) {
+  const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  const ox = PAD - minX + Math.max(0, sw - 2 * PAD - (maxX - minX)) / 2;
+  const oy = PAD - minY + Math.max(0, sh - 2 * PAD - (maxY - minY)) / 2;
+  return { ox, oy };
+}
+
+function _redrawPhasor(inputs, outputs) {
+  const svg = _svgPhasor;
+  if (!svg) return;
+  svg.innerHTML = '';
+  _phasorG = _el('g');
+  svg.appendChild(_phasorG);
+  _applyPhasorTransform();
+  const sw = svg.clientWidth  || 400;
+  const sh = svg.clientHeight || 300;
+  if      (inputs.model === 0) _drawShortPhasor(_phasorG, svg, sw, sh, inputs, outputs);
+  else if (inputs.model === 1) _drawNominalPiPhasor(_phasorG, svg, sw, sh, inputs, outputs);
+  else                          _drawDistPhasor(_phasorG, svg, sw, sh, inputs, outputs);
+}
+
+// ── Short line: VS = VR + IR·(R + jXL),  IS = IR ─────────────────────────────
+function _drawShortPhasor(g, svg, sw, sh, inputs, outputs) {
+  const VR_kV  = inputs.nomSyskV / Math.sqrt(3);
+  const pVR    = { re: VR_kV, im: 0 };
+  const pIR    = _computeIR(inputs, outputs);             // kA (= IS)
+  const R = outputs.B.re, XL = outputs.B.im;
+  const pIRRi  = { re: pIR.re * R,   im: pIR.im * R   }; // IR·R   kV
+  const pIRXLi = { re: -pIR.im * XL, im: pIR.re * XL  }; // IR·jXL kV
+  const pVS    = cAdd(cAdd(pVR, pIRRi), pIRXLi);
+
+  const maxV = Math.max(cMag(pVR), cMag(pVS)) || 1;
+  const maxI = cMag(pIR) || 0.001;
+  const TGT  = Math.min(sw, sh) * 0.40;
+  const sV   = TGT / maxV;
+  const sI   = (TGT * 0.50) / maxI;
+  const sv = p => ({ x: p.re * sV, y: -p.im * sV });
+  const si = p => ({ x: p.re * sI, y: -p.im * sI });
+
+  const vVR   = sv(pVR);
+  const vVS   = sv(pVS);
+  const vDRR  = sv(pIRRi);
+  const vDXL  = sv(pIRXLi);
+  const vInt  = { x: vVR.x + vDRR.x, y: vVR.y + vDRR.y };
+  const iIR   = si(pIR);
+
+  const { ox, oy } = _phasorOrigin(
+    [{ x: 0, y: 0 }, vVR, vVS, vInt, iIR], sw, sh);
+
+  // Reference axis
+  const axMax = Math.max(vVR.x, vVS.x, iIR.x, 0);
+  g.appendChild(_el('line', { x1: ox - 15, y1: oy, x2: ox + axMax + 15, y2: oy,
+    stroke: '#ccc', 'stroke-width': '0.7', 'stroke-dasharray': '4,4' }));
+
+  // Construction: IR·R and IR·jXL drops chained from VR tip
+  _conVec(g, ox + vVR.x, oy + vVR.y, vDRR.x, vDRR.y);
+  _conVec(g, ox + vInt.x, oy + vInt.y, vDXL.x, vDXL.y);
+  _conLabel(g, ox + vVR.x, oy + vVR.y, vDRR.x, vDRR.y, 'IR\u00b7R');
+  _conLabel(g, ox + vInt.x, oy + vInt.y, vDXL.x, vDXL.y, 'IR\u00b7X\u2097');
+
+  // Main phasors
+  const C_VR = '#000099', C_VS = '#990000', C_I = '#005000';
+  _phasorVec(g, ox, oy, vVR.x, vVR.y, C_VR);
+  _phasorVec(g, ox, oy, vVS.x, vVS.y, C_VS);
+  _phasorVec(g, ox, oy, iIR.x, iIR.y, C_I, '6,3');
+
+  g.appendChild(_el('circle', { cx: ox, cy: oy, r: 3, fill: '#333' }));
+
+  _phasorLabel(g, ox+vVR.x, oy+vVR.y, C_VR,
+    'VR\u00a0=\u00a0' + _fmtPhasor(VR_kV, 0, 'kV'), vVR.x, vVR.y);
+  _phasorLabel(g, ox+vVS.x, oy+vVS.y, C_VS,
+    'VS\u00a0=\u00a0' + _fmtPhasor(pVS.re, pVS.im, 'kV'), vVS.x, vVS.y);
+  _phasorLabel(g, ox+iIR.x, oy+iIR.y, C_I,
+    'IR\u00a0=\u00a0IS\u00a0=\u00a0' + _fmtPhasor(pIR.re, pIR.im, 'kA', 3), iIR.x, iIR.y);
+
+  _phasorLegend(svg, sh, sV, sI, C_VR, C_I);
+}
+
+// ── Nominal π: full textbook construction (Fig 2.8.6) ────────────────────────
+//   VR ref → IR lagging → IC1 = j(Y/2)VR → IL = IR+IC1
+//   VS = VR + IL·R + IL·jXL (voltage chain)
+//   IC2 = j(Y/2)VS → IS = IL+IC2
+function _drawNominalPiPhasor(g, svg, sw, sh, inputs, outputs) {
+  const VR_kV = inputs.nomSyskV / Math.sqrt(3);
+  const pVR   = { re: VR_kV, im: 0 };
+  const pIR   = _computeIR(inputs, outputs);             // kA
+
+  // IC1 = j·(Y/2)·VR,  Y = 1/Xc  →  j·VR/(2·Xc)  [kA]
+  const pIC1  = { re: -pVR.im / (2 * outputs.Xc), im: pVR.re / (2 * outputs.Xc) };
+  const pIL   = cAdd(pIR, pIC1);                         // line current kA
+
+  const R = outputs.B.re, XL = outputs.B.im;
+  const pILRi  = { re: pIL.re * R,   im: pIL.im * R   }; // IL·R   kV
+  const pILXLi = { re: -pIL.im * XL, im: pIL.re * XL  }; // IL·jXL kV
+  const pVS    = cAdd(cAdd(pVR, pILRi), pILXLi);         // ≈ outputs.Vs_phase_kV
+
+  // IC2 = j·(Y/2)·VS  [kA]
+  const pIC2  = { re: -pVS.im / (2 * outputs.Xc), im: pVS.re / (2 * outputs.Xc) };
+  const pIS   = cAdd(pIL, pIC2);                         // ≈ _IS_kA(outputs)
+
+  const maxV = Math.max(cMag(pVR), cMag(pVS)) || 1;
+  const maxI = Math.max(cMag(pIR), cMag(pIL), cMag(pIS), cMag(pIC1), cMag(pIC2)) || 0.001;
+  const TGT  = Math.min(sw, sh) * 0.40;
+  const sV   = TGT / maxV;
+  const sI   = (TGT * 0.50) / maxI;
+  const sv = p => ({ x: p.re * sV, y: -p.im * sV });
+  const si = p => ({ x: p.re * sI, y: -p.im * sI });
+
+  // Screen displacements from origin
+  const vVR   = sv(pVR),  vVS  = sv(pVS);
+  const vDRR  = sv(pILRi), vDXL = sv(pILXLi);
+  const vInt  = { x: vVR.x + vDRR.x, y: vVR.y + vDRR.y }; // VR + IL·R tip
+  const iIR   = si(pIR),  iIL  = si(pIL),  iIS  = si(pIS);
+  const iIC1  = si(pIC1), iIC2 = si(pIC2);
+  // Head-to-tail helper tips (for construction guides)
+  const iIC1fromIR = { x: iIR.x + iIC1.x, y: iIR.y + iIC1.y }; // ≈ iIL
+  const iIC2fromIL = { x: iIL.x + iIC2.x, y: iIL.y + iIC2.y }; // ≈ iIS
+
+  const { ox, oy } = _phasorOrigin([
+    { x: 0, y: 0 }, vVR, vVS, vInt,
+    iIR, iIC1, iIL, iIC2, iIS, iIC1fromIR, iIC2fromIL,
+  ], sw, sh);
+
+  // Reference axis
+  const axMax = Math.max(vVR.x, vVS.x, iIR.x, iIL.x, 0);
+  g.appendChild(_el('line', { x1: ox - 15, y1: oy, x2: ox + axMax + 20, y2: oy,
+    stroke: '#ccc', 'stroke-width': '0.7', 'stroke-dasharray': '4,4' }));
+
+  // Voltage construction drops (IL·R then IL·jXL chained from VR tip)
+  _conVec(g, ox + vVR.x, oy + vVR.y, vDRR.x, vDRR.y);
+  _conVec(g, ox + vInt.x, oy + vInt.y, vDXL.x, vDXL.y);
+  _conLabel(g, ox + vVR.x, oy + vVR.y, vDRR.x, vDRR.y, 'IL\u00b7R');
+  _conLabel(g, ox + vInt.x, oy + vInt.y, vDXL.x, vDXL.y, 'IL\u00b7X\u2097');
+
+  // Head-to-tail current construction hints (thin dashed): IC1 from IR tip → IL
+  g.appendChild(_el('line', {
+    x1: ox + iIR.x, y1: oy + iIR.y,
+    x2: ox + iIC1fromIR.x, y2: oy + iIC1fromIR.y,
+    stroke: '#bbb', 'stroke-width': '0.8', 'stroke-dasharray': '3,2',
+  }));
+  // IC2 from IL tip → IS
+  g.appendChild(_el('line', {
+    x1: ox + iIL.x, y1: oy + iIL.y,
+    x2: ox + iIC2fromIL.x, y2: oy + iIC2fromIL.y,
+    stroke: '#bbb', 'stroke-width': '0.8', 'stroke-dasharray': '3,2',
+  }));
+
+  // Main voltage phasors
+  const C_VR = '#000099', C_VS = '#990000';
+  _phasorVec(g, ox, oy, vVR.x, vVR.y, C_VR);
+  _phasorVec(g, ox, oy, vVS.x, vVS.y, C_VS);
+
+  // Main current phasors
+  const C_IR = '#005000', C_IL = '#007777', C_IC = '#660066', C_IS = '#884400';
+  _phasorVec(g, ox, oy, iIR.x,  iIR.y,  C_IR, '6,3');
+  _phasorVec(g, ox, oy, iIC1.x, iIC1.y, C_IC, '4,2');
+  _phasorVec(g, ox, oy, iIL.x,  iIL.y,  C_IL);
+  _phasorVec(g, ox, oy, iIC2.x, iIC2.y, C_IC, '4,2');
+  _phasorVec(g, ox, oy, iIS.x,  iIS.y,  C_IS, '6,3');
+
+  g.appendChild(_el('circle', { cx: ox, cy: oy, r: 3, fill: '#333' }));
+
+  _phasorLabel(g, ox+vVR.x, oy+vVR.y, C_VR,
+    'VR\u00a0=\u00a0' + _fmtPhasor(VR_kV, 0, 'kV'), vVR.x, vVR.y);
+  _phasorLabel(g, ox+vVS.x, oy+vVS.y, C_VS,
+    'VS\u00a0=\u00a0' + _fmtPhasor(pVS.re, pVS.im, 'kV'), vVS.x, vVS.y);
+  _phasorLabel(g, ox+iIR.x, oy+iIR.y, C_IR,
+    'IR\u00a0=\u00a0' + _fmtPhasor(pIR.re, pIR.im, 'kA', 3), iIR.x, iIR.y);
+  _phasorLabel(g, ox+iIC1.x, oy+iIC1.y, C_IC,
+    'IC1\u00a0=\u00a0' + _fmtPhasor(pIC1.re, pIC1.im, 'kA', 3), iIC1.x, iIC1.y);
+  _phasorLabel(g, ox+iIL.x, oy+iIL.y, C_IL,
+    'IL\u00a0=\u00a0' + _fmtPhasor(pIL.re, pIL.im, 'kA', 3), iIL.x, iIL.y);
+  _phasorLabel(g, ox+iIC2.x, oy+iIC2.y, C_IC,
+    'IC2\u00a0=\u00a0' + _fmtPhasor(pIC2.re, pIC2.im, 'kA', 3), iIC2.x, iIC2.y);
+  _phasorLabel(g, ox+iIS.x, oy+iIS.y, C_IS,
+    'IS\u00a0=\u00a0' + _fmtPhasor(pIS.re, pIS.im, 'kA', 3), iIS.x, iIS.y);
+
+  _phasorLegend(svg, sh, sV, sI, C_VR, C_IL);
+}
+
+// ── Distributed (ABCD): generic VR, VS, IR, IS from origin ───────────────────
+function _drawDistPhasor(g, svg, sw, sh, inputs, outputs) {
+  const VR_kV = inputs.nomSyskV / Math.sqrt(3);
+  const pVR   = { re: VR_kV, im: 0 };
+  const pVS   = outputs.Vs_phase_kV;
+  const pIS   = _IS_kA(outputs);
+  const pIR   = _computeIR(inputs, outputs);
+
+  const maxV = Math.max(cMag(pVR), cMag(pVS)) || 1;
+  const maxI = Math.max(cMag(pIS), cMag(pIR)) || 0.001;
+  const TGT  = Math.min(sw, sh) * 0.40;
+  const sV   = TGT / maxV;
+  const sI   = (TGT * 0.50) / maxI;
+  const sv = p => ({ x: p.re * sV, y: -p.im * sV });
+  const si = p => ({ x: p.re * sI, y: -p.im * sI });
+
+  const vVR = sv(pVR), vVS = sv(pVS);
+  const iIR = si(pIR), iIS = si(pIS);
+
+  const { ox, oy } = _phasorOrigin(
+    [{ x: 0, y: 0 }, vVR, vVS, iIR, iIS], sw, sh);
+
+  const axMax = Math.max(vVR.x, vVS.x, iIR.x, iIS.x, 0);
+  g.appendChild(_el('line', { x1: ox - 15, y1: oy, x2: ox + axMax + 15, y2: oy,
+    stroke: '#ccc', 'stroke-width': '0.7', 'stroke-dasharray': '4,4' }));
+
+  const C_VR = '#000099', C_VS = '#990000', C_IR = '#005000', C_IS = '#884400';
+  _phasorVec(g, ox, oy, vVR.x, vVR.y, C_VR);
+  _phasorVec(g, ox, oy, vVS.x, vVS.y, C_VS);
+  _phasorVec(g, ox, oy, iIR.x, iIR.y, C_IR, '6,3');
+  _phasorVec(g, ox, oy, iIS.x, iIS.y, C_IS, '6,3');
+
+  g.appendChild(_el('circle', { cx: ox, cy: oy, r: 3, fill: '#333' }));
+
+  _phasorLabel(g, ox+vVR.x, oy+vVR.y, C_VR,
+    'VR\u00a0=\u00a0' + _fmtPhasor(VR_kV, 0, 'kV'), vVR.x, vVR.y);
+  _phasorLabel(g, ox+vVS.x, oy+vVS.y, C_VS,
+    'VS\u00a0=\u00a0' + _fmtPhasor(pVS.re, pVS.im, 'kV'), vVS.x, vVS.y);
+  _phasorLabel(g, ox+iIR.x, oy+iIR.y, C_IR,
+    'IR\u00a0=\u00a0' + _fmtPhasor(pIR.re, pIR.im, 'kA', 3), iIR.x, iIR.y);
+  _phasorLabel(g, ox+iIS.x, oy+iIS.y, C_IS,
+    'IS\u00a0=\u00a0' + _fmtPhasor(pIS.re, pIS.im, 'kA', 3), iIS.x, iIS.y);
+
+  _phasorLegend(svg, sh, sV, sI, C_VR, C_IR);
+}
+
+// ─── Placeholders (static) ────────────────────────────────────────────────────
 
 function _drawArrangementPlaceholder() {
   const svg = _svgBundle;

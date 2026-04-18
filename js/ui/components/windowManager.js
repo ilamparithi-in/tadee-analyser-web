@@ -179,7 +179,16 @@ function _register(win) {
     const label   = win.querySelector('.title-bar-text')?.textContent?.trim() || 'Window';
     const taskBtn = document.createElement('button');
     taskBtn.className   = 'taskbar-task-btn';
-    taskBtn.textContent = label;
+    const iconSrc = win.dataset.icon;
+    if (iconSrc) {
+      const img = new Image(16, 16);
+      img.src = iconSrc; img.alt = '';
+      taskBtn.appendChild(img);
+    }
+    const labelSpan = document.createElement('span');
+    labelSpan.className   = 'task-label';
+    labelSpan.textContent = label;
+    taskBtn.appendChild(labelSpan);
     taskBtn.setAttribute('aria-pressed', 'false');
     if (startHidden) taskBtn.style.display = 'none';
     taskBtn.addEventListener('click', () => {
@@ -203,9 +212,11 @@ function _register(win) {
       const s = registry.get(win);
       if (!s || s.isHidden) return;
       showContextMenu(e.clientX, e.clientY, [
+        { label: '\u25a1 Restore',  disabled: !s.isMinimized && !s.isMaximized,
+          action: () => { _restore(win); _focus(win); } },
         { label: '\u2013 Minimize', disabled: s.isMinimized || !s.minimizable,
           action: () => { _focus(win); _minimize(win); } },
-        { label: '\u25a1 Maximize', disabled: s.isMaximized || !s.maximizable,
+        { label: '\u25a1 Maximize', disabled: s.isMaximized || s.isMinimized || !s.maximizable,
           action: () => { _focus(win); _maximize(win); } },
         { separator: true },
         { label: '\u2715 Close', disabled: !s.closable, action: () => {

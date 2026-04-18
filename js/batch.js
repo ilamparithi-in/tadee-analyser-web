@@ -12,6 +12,15 @@
 
 import { lineCalculations } from './tadee.js';
 
+// ─── Model normaliser ────────────────────────────────────────────────────────
+/** Convert a raw line-model select value ('Short', 'Nominal π', …) to 0/1/2. */
+export function normaliseModel(raw) {
+  const s = String(raw).toLowerCase().trim();
+  if (s === '1' || s.includes('pi') || s.includes('π')) return 1;
+  if (s === '2' || s.includes('dist'))                   return 2;
+  return 0;
+}
+
 // ─── Field descriptors ────────────────────────────────────────────────────────
 // Used by the range-sweep dropdown in Batch Mode.
 // JSON import accepts ALL lineParams keys regardless of this list.

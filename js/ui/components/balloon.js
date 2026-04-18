@@ -14,11 +14,11 @@
  * }
  */
 
-// Letter inside the icon badge — style/colour applied via CSS per data-type
-const ICON_CHARS = {
-  info    : 'i',
-  warning : '!',
-  error   : '\u00d7',  // ×
+// Icon PNG mapping: type → filename key
+const ICON_FILES = {
+  info    : 'media/icons/msg_information-16x16.png',
+  warning : 'media/icons/msg_warning-16x16.png',
+  error   : 'media/icons/msg_error-16x16.png',
 };
 
 const DEFAULT_TITLES = {
@@ -58,7 +58,10 @@ export function showBalloon(anchorEl, {
   const iconEl = document.createElement('span');
   iconEl.className = 'balloon-icon-wrapper';
   iconEl.setAttribute('aria-hidden', 'true');
-  iconEl.textContent = ICON_CHARS[type] ?? '!';
+  const iconImg = new Image(16, 16);
+  iconImg.src = ICON_FILES[type] ?? ICON_FILES.warning;
+  iconImg.alt = '';
+  iconEl.appendChild(iconImg);
 
   const titleEl = document.createElement('b');
   titleEl.className  = 'balloon-title';

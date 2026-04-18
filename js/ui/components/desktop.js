@@ -12,7 +12,7 @@ const ICONS = [
   {
     id:    'icon-tla',
     label: 'Transmission\nLine Analyzer',
-    img:   'media/icons/display_properties-4.png',
+    img:   'media/icons/network_drive-5.png',
     action() {
       const win = document.getElementById('win-analyser');
       if (!win) return;
@@ -51,10 +51,8 @@ export function initDesktop(containerEl) {
     '<li>Ilamparithi Murali <span class="adi-roll">107124046</span></li>' +
     '<li>Priyadarsan ST <span class="adi-roll">107124084</span></li>' +
     '<li>Srijith M S <span class="adi-roll">107124110</span></li>' +
-    '</ul>' +
-    '<button class="adn-close" aria-label="Close notice" title="Close">✕</button>';
+    '</ul>';
   containerEl.appendChild(info);
-  info.querySelector('.adn-close').addEventListener('click', () => info.remove());
 
   // Active Desktop zoom notice — bottom-right corner
   const notice = document.createElement('div');
@@ -66,6 +64,16 @@ export function initDesktop(containerEl) {
     '<button class="adn-close" aria-label="Close notice" title="Close">✕</button>';
   containerEl.appendChild(notice);
   notice.querySelector('.adn-close').addEventListener('click', () => notice.remove());
+
+  // Legalese — bottom-right corner, below the zoom notice
+  const legal = document.createElement('div');
+  legal.id = 'desktop-legalese';
+  legal.innerHTML =
+    'Windows\u00ae is a registered trademark of Microsoft Corporation.<br>' +
+    'This project is not affiliated with or endorsed by Microsoft.<br>' +
+    'UI styles by <a href="https://github.com/jdan/98.css" target="_blank" rel="noopener noreferrer">98.css</a> (MIT). ' +
+    'Icons from <a href="https://win98icons.alexmeub.com/" target="_blank" rel="noopener noreferrer">win98icons.alexmeub.com</a>.';
+  containerEl.appendChild(legal);
 
   // Deselect all icons when clicking blank desktop space
   containerEl.addEventListener('click', e => {

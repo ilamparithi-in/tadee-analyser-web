@@ -22,8 +22,9 @@
   <div id="desktop"></div>
 
   <!-- Transmission Line Analyzer window -->
-  <div id="win-analyser" class="window" data-start-hidden="true" style="width: 900px; height: 580px;">
+  <div id="win-analyser" class="window" data-start-hidden="true" data-icon="media/icons/network_drive-16x16.png" style="width: 900px; height: 580px;">
     <div class="title-bar">
+      <img src="media/icons/network_drive-16x16.png" width="16" height="16" alt="">
       <div class="title-bar-text">Transmission Line Analyzer</div>
       <div class="title-bar-controls">
         <button aria-label="Minimize"></button>
@@ -359,11 +360,12 @@
   <script type="module" src="js/desktop.js"></script>
   <script type="module" src="js/codeViewer.js"></script>
   <script type="module" src="js/calcViewer.js"></script>
+  <script type="module" src="js/batchWindow.js"></script>
 </div><!-- /#viewport -->
 
 <div id="taskbar">
   <button id="start-btn">
-    <span class="start-icon" aria-hidden="true"></span>
+    <img src="media/icons/windows-4.png" width="14" height="14" alt="" aria-hidden="true">
     Start
   </button>
   <div id="taskbar-sep"></div>

@@ -17,7 +17,7 @@ import { initUnitInputs, getBaseValue } from '../components/unitInput.js';
 import { showError }        from '../components/errorDialog.js';
 import { showBalloon, hideBalloon }    from '../components/balloon.js';
 import { initDiagramContainer, updateDiagrams } from '../components/diagrams.js';
-import { computeFromParams, fmtComplex, buildReportPage, PDF_STYLES } from '../../batch.js';
+import { computeFromParams, normaliseModel, fmtComplex, buildReportPage, PDF_STYLES } from '../../batch.js';
 import { initPanelPopout }  from '../components/panelPopout.js';
 
 export function initAnalyserWindow(viewport) {
@@ -204,6 +204,8 @@ function _applyInputs(win, data) {
       if (el) { el.value = val; applied++; }
     }
   });
+  // Notify dependent UI (e.g. spacing toggle) that selects were changed programmatically
+  win.querySelector('#system-type')?.dispatchEvent(new Event('change'));
   return applied;
 }
 
@@ -544,13 +546,6 @@ function _initStatusBarHints(win) {
   });
 }
 
-function _normaliseModel(raw) {
-  const s = raw.toLowerCase().trim();
-  if (s.includes('pi') || s.includes('π')) return 1;
-  if (s.includes('dist'))                   return 2;
-  return 0;
-}
-
 function _compute(win) {
   const sbStatus = win.querySelector('#sb-status');
   const sbTime   = win.querySelector('#sb-time');
@@ -580,7 +575,7 @@ function _compute(win) {
     scStrands:     n('strands'),
     strandDiaM:    bv('dia-strands'),
     resSCPerKm:    bv('resistance'),
-    model:         _normaliseModel(v('line-model')?.value ?? 'Short'),
+    model:         normaliseModel(v('line-model')?.value ?? 'Short'),
   };
 
   // ── Validate ───────────────────────────────────────────────────────────────
