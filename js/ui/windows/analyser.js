@@ -16,8 +16,9 @@ import { initTooltips }     from '../components/tooltip.js';
 import { initUnitInputs, getBaseValue } from '../components/unitInput.js';
 import { showError, showWindowCloseConfirm } from '../components/errorDialog.js';
 import { showBalloon, hideBalloon }    from '../components/balloon.js';
-import { initDiagramContainer, updateDiagrams } from '../components/diagrams.js';
-import { computeFromParams, normaliseModel, fmtComplex, buildReportPage, PDF_STYLES } from '../../batch.js';
+import { initDiagramContainer, updateDiagrams,
+         renderArrangementSvgStr, renderCircuitSvgStr, renderPhasorSvgStr } from '../components/diagrams.js';
+import { computeFromParams, normaliseModel, fmtComplex, buildReportPage, buildDiagramPage, PDF_STYLES } from '../../batch.js';
 import { initPanelPopout }  from '../components/panelPopout.js';
 
 export function initAnalyserWindow(viewport) {
@@ -103,6 +104,9 @@ export function initAnalyserWindow(viewport) {
 
   // Spacing toggle (symmetric vs unsymmetric)
   _initSpacingToggle(win);
+
+  // Toolbar scroll arrows
+  _initToolbarScroll(win);
 
   // Model suggestion balloons for line-length + voltage
   _initModelHints(win);
@@ -263,13 +267,25 @@ function _exportOutput(win) {
 function _exportPdf(win) {
   if (!_lastResults) return;
   const { inputs, outputs } = _lastResults;
+
+  // Render all three diagrams at fixed PDF canvas dimensions.
+  const svgs = {
+    arrangement: renderArrangementSvgStr(inputs,          700, 240),
+    circuit:     renderCircuitSvgStr(inputs, outputs,     700, 210),
+    phasor:      renderPhasorSvgStr(inputs,  outputs,     700, 260),
+  };
+
+  const page1 = buildReportPage(inputs, outputs, 1, 1);
+  const page2 = buildDiagramPage(inputs, svgs);
+
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8"/>
 <title>Transmission Line Analysis Report</title>
 <style>${PDF_STYLES}</style>
 </head>
-<body>${buildReportPage(inputs, outputs, 1, 1)}</body>
+<body>${page1}
+${page2}</body>
 </html>`;
   const pw = window.open('', '_blank');
   if (!pw) return;
@@ -571,6 +587,31 @@ function _initStatusBarHints(win) {
       sbHover.textContent = '';
     }
   });
+}
+
+function _initToolbarScroll(win) {
+  const inner  = win.querySelector('.toolbar-inner');
+  const btnL   = win.querySelector('.toolbar-scroll-left');
+  const btnR   = win.querySelector('.toolbar-scroll-right');
+  if (!inner || !btnL || !btnR) return;
+
+  const STEP = 80; // px per click
+
+  function _update() {
+    const canLeft  = inner.scrollLeft > 0;
+    const canRight = inner.scrollLeft + inner.clientWidth < inner.scrollWidth - 1;
+    btnL.classList.toggle('visible', canLeft  || canRight);
+    btnR.classList.toggle('visible', canLeft  || canRight);
+    btnL.disabled = !canLeft;
+    btnR.disabled = !canRight;
+  }
+
+  btnL.addEventListener('click', () => { inner.scrollLeft -= STEP; _update(); });
+  btnR.addEventListener('click', () => { inner.scrollLeft += STEP; _update(); });
+  inner.addEventListener('scroll', _update, { passive: true });
+
+  new ResizeObserver(_update).observe(inner);
+  _update();
 }
 
 function _compute(win) {

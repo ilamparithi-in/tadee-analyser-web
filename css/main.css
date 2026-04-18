@@ -270,7 +270,7 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
 #win-analyser > .window-body { flex: 1; min-height: 0; overflow: hidden; }
 /* Icon in title bar: anchor title text left-aligned next to icon */
 #win-analyser .title-bar img { margin-right: 3px; }
-#win-analyser .title-bar-text { flex: 1; text-align: left; }
+#win-analyser .title-bar-text { flex: 1; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .field-row { margin-bottom: 6px; }
 
 /* ─── Menu bar ────────────────────────────────────────────────────────────── */
@@ -519,12 +519,33 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
 
 /* ─── Toolbar ─────────────────────────────────────────────────────────────── */
 .toolbar {
-  display: flex; align-items: center; gap: 2px;
-  background: silver; padding: 2px 4px;
+  display: flex; align-items: stretch;
+  background: silver; padding: 2px 0;
   border-bottom: 1px solid grey;
+  overflow: hidden;
+}
+.toolbar-inner {
+  display: flex; align-items: center; gap: 2px;
+  flex: 1; min-width: 0;
+  overflow-x: hidden;
+  padding: 0 4px;
+  scroll-behavior: auto;
 }
 .toolbar button { min-width: unset; padding: 2px 8px; font-size: 11px; }
-.toolbar-separator { width: 1px; height: 22px; background: grey; margin: 0 4px; box-shadow: 1px 0 #fff; }
+.toolbar-separator { width: 1px; height: 22px; background: grey; margin: 0 4px; box-shadow: 1px 0 #fff; flex-shrink: 0; }
+.toolbar-scroll-btn {
+  flex-shrink: 0;
+  min-width: unset !important;
+  width: 14px;
+  padding: 0;
+  font-size: 9px;
+  align-self: stretch;
+  display: none;
+  border: none;
+  box-shadow: inset -1px -1px #fff, inset 1px 1px #808080,
+              inset -2px -2px #dfdfdf, inset 2px 2px #0a0a0a;
+}
+.toolbar-scroll-btn.visible { display: block; }
 
 /* ─── Panel layout ────────────────────────────────────────────────────────── */
 #panel-layout {
@@ -537,7 +558,7 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
   display: flex; flex: 1; min-height: 40px; overflow: hidden;
 }
 #panel-left {
-  flex: 0 0 var(--left-width); min-width: 120px; overflow: hidden;
+  flex: 0 1 var(--left-width); min-width: 120px; overflow: hidden;
   display: flex; flex-direction: column;
   box-shadow: inset -1px -1px #fff, inset 1px 1px grey,
               inset -2px -2px #dfdfdf, inset 2px 2px #0a0a0a;

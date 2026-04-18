@@ -1921,6 +1921,169 @@ function _drawDistPhasor(g, svg, sw, sh, inputs, outputs) {
   _phasorLegend(svg, sh, sV, sI, C_VR, C_IR);
 }
 
+// ─── PDF diagram renderers (static, no module state) ─────────────────────────
+
+/**
+ * Render the conductor arrangement diagram to an SVG XML string for PDF export.
+ * Uses fixed "good-looking" (not-to-scale) mode with auto-fit centering.
+ *
+ * @param {object} inputs  From computeFromParams result
+ * @param {number} w       SVG width in user units (screen px)
+ * @param {number} h       SVG height in user units (screen px)
+ * @returns {string}       SVG XML suitable for inline embedding in HTML
+ */
+export function renderArrangementSvgStr(inputs, w = 700, h = 240) {
+  const { scCount, scStrands, strandDiaM, scSpacingM } = inputs;
+  const layers = (3 + Math.sqrt(12 * scStrands - 3)) / 6;
+  const rPhys  = (2 * layers - 1) * strandDiaM / 2;
+  const phases = phasePositions(inputs);
+  const pts    = Object.values(phases);
+  const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+  const physW = (Math.max(...xs) - Math.min(...xs)) + 2 * rPhys;
+  const physH = (Math.max(...ys) - Math.min(...ys)) + 2 * rPhys;
+  const scale = Math.min(
+    (w * 0.65) / (physW || 0.01),
+    (h * 0.65) / (physH || 0.01),
+  );
+  const tx = w / 2, ty = h / 2;
+  const dispR       = FIXED_R_PX;
+  const dispSpacing = FIXED_SC_SPACING_PX;
+  const bundleExtent = dispSpacing / 2 + dispR;
+
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('xmlns',   SVG_NS);
+  svg.setAttribute('width',   w);
+  svg.setAttribute('height',  h);
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  // White background for clean print output
+  svg.appendChild(_el('rect', { x: 0, y: 0, width: w, height: h, fill: '#fff' }));
+
+  const bundleG = _el('g');
+  const annotG  = _el('g');
+  svg.appendChild(bundleG);
+  svg.appendChild(annotG);
+
+  const scrAbs = ph => {
+    const [wx, wy] = phases[ph];
+    return [tx + wx * scale, ty + wy * scale];
+  };
+
+  // Draw bundles at absolute positions (display radius + spacing, not to scale)
+  ['A', 'B', 'C'].forEach((ph, i) => {
+    const [cx, cy] = scrAbs(ph);
+    _drawBundle(bundleG, cx, cy, scCount, dispR, dispSpacing,
+      i === 0 ? rPhys : null, null);
+  });
+
+  // Phase spacing dim lines
+  const sym = inputs.symmetric === 1 || inputs.symmetric === '1' || inputs.symmetric === 'symmetrical';
+  if (sym) {
+    // _drawPhaseDim side=null reads _bs.tx/ty and _view.zoom for the auto-outward logic;
+    // temporarily override these with PDF canvas values (sync — safe in single-threaded JS).
+    const prevBsTx = _bs.tx, prevBsTy = _bs.ty, prevZoom = _view.zoom;
+    _bs.tx = tx; _bs.ty = ty; _view.zoom = 1;
+    _drawPhaseDim(annotG, scrAbs('A'), scrAbs('B'), bundleExtent,
+      `D\u00a0=\u00a0${inputs.phaseSpacingM.toFixed(1)}\u00a0m`);
+    _bs.tx = prevBsTx; _bs.ty = prevBsTy; _view.zoom = prevZoom;
+  } else {
+    const fmt = v => v >= 1 ? `${v.toFixed(1)}\u00a0m` : `${(v * 100).toFixed(1)}\u00a0cm`;
+    _drawPhaseDim(annotG, scrAbs('A'), scrAbs('B'), bundleExtent,
+      `Dab\u00a0=\u00a0${fmt(inputs.Dab)}`, 'top');
+    _drawPhaseDim(annotG, scrAbs('B'), scrAbs('C'), bundleExtent,
+      `Dbc\u00a0=\u00a0${fmt(inputs.Dbc)}`, 'top');
+    _drawDcaHorizDim(annotG, scrAbs('A'), scrAbs('C'),
+      ['A', 'B', 'C'].map(p => scrAbs(p)), bundleExtent,
+      `Dca\u00a0=\u00a0${fmt(inputs.Dca)}`);
+  }
+
+  // Sub-conductor spacing annotation (phase A only, first two sub-conductors)
+  if (scCount >= 2) {
+    const offsets  = bundleOffsets(scCount, dispSpacing);
+    const [acx, acy] = scrAbs('A');
+    _drawSpacingDim(annotG,
+      acx + offsets[0][0], acy + offsets[0][1],
+      acx + offsets[1][0], acy + offsets[1][1],
+      dispR, `s\u00a0=\u00a0${(scSpacingM * 100).toFixed(1)}\u00a0cm`);
+  }
+
+  // Phase labels
+  const PHASE_COLORS = { A: '#cc0000', B: '#ccaa00', C: '#0000cc' };
+  ['A', 'B', 'C'].forEach(ph => {
+    const [cx, cy] = scrAbs(ph);
+    const labelY = cy + dispR + 13;
+    for (const [stroke, fill] of [['#fff', 'none'], ['none', PHASE_COLORS[ph]]]) {
+      const t = _el('text', {
+        x: cx, y: labelY,
+        'text-anchor': 'middle', 'dominant-baseline': 'middle',
+        'font-family': FONT, 'font-size': '12', 'font-weight': 'bold',
+        fill, stroke, 'stroke-width': '3',
+      });
+      t.textContent = ph;
+      annotG.appendChild(t);
+    }
+  });
+
+  return new XMLSerializer().serializeToString(svg);
+}
+
+/**
+ * Render the circuit diagram to an SVG XML string for PDF export.
+ * Distributed lines use the ladder view.
+ *
+ * @param {object} inputs   From computeFromParams result
+ * @param {object} outputs  From computeFromParams result
+ * @param {number} w        SVG width in px (distributed will be forced ≥820)
+ * @param {number} h        SVG height in px
+ * @returns {string}        SVG XML suitable for inline embedding in HTML
+ */
+export function renderCircuitSvgStr(inputs, outputs, w = 700, h = 210) {
+  // Distributed circuit needs a fixed wider canvas (the drawing function enforces ≥820)
+  const svgW = inputs.model === 2 ? Math.max(w, 820) : w;
+
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('xmlns',   SVG_NS);
+  svg.setAttribute('width',   svgW);
+  svg.setAttribute('height',  h);
+  svg.setAttribute('viewBox', `0 0 ${svgW} ${h}`);
+  svg.appendChild(_el('rect', { x: 0, y: 0, width: svgW, height: h, fill: '#fff' }));
+
+  const g = _el('g');
+  svg.appendChild(g);
+
+  if      (inputs.model === 0) _drawShortCircuit(g, svgW, h, inputs, outputs);
+  else if (inputs.model === 1) _drawNominalPiCircuit(g, svgW, h, inputs, outputs);
+  else                          _drawDistributedCircuit(g, svgW, h, inputs, outputs);
+
+  return new XMLSerializer().serializeToString(svg);
+}
+
+/**
+ * Render the phasor diagram to an SVG XML string for PDF export.
+ *
+ * @param {object} inputs   From computeFromParams result
+ * @param {object} outputs  From computeFromParams result
+ * @param {number} w        SVG width in px
+ * @param {number} h        SVG height in px
+ * @returns {string}        SVG XML suitable for inline embedding in HTML
+ */
+export function renderPhasorSvgStr(inputs, outputs, w = 700, h = 260) {
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('xmlns',   SVG_NS);
+  svg.setAttribute('width',   w);
+  svg.setAttribute('height',  h);
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  svg.appendChild(_el('rect', { x: 0, y: 0, width: w, height: h, fill: '#fff' }));
+
+  const g = _el('g');
+  svg.appendChild(g);
+
+  if      (inputs.model === 0) _drawShortPhasor(g, svg, w, h, inputs, outputs);
+  else if (inputs.model === 1) _drawNominalPiPhasor(g, svg, w, h, inputs, outputs);
+  else                          _drawDistPhasor(g, svg, w, h, inputs, outputs);
+
+  return new XMLSerializer().serializeToString(svg);
+}
+
 // ─── Placeholders (static) ────────────────────────────────────────────────────
 
 function _drawArrangementPlaceholder() {

@@ -206,6 +206,41 @@ export function buildReportPage(inp, out, pageNum, total) {
 </div>`;
 }
 
+// ─── Diagrams page builder ────────────────────────────────────────────────────
+/**
+ * Build the diagrams page (page 2 of the single-input report).
+ *
+ * @param {object} inp   inputs object from computeFromParams result
+ * @param {{ arrangement: string, circuit: string, phasor: string }} svgs
+ *                       Pre-rendered SVG XML strings from diagrams.js render functions
+ * @returns {string}     HTML fragment (no <html>/<head>)
+ */
+export function buildDiagramPage(inp, svgs) {
+  const MODEL_NAMES = ['Short Line', 'Nominal \u03c0', 'Distributed Parameter'];
+  const modelLabel  = MODEL_NAMES[inp.model] ?? inp.model;
+  return `
+<div class="report-page diagrams-page">
+  <h2>Diagrams</h2>
+
+  <div class="diag-section">
+    <h3>1. Conductor Arrangement</h3>
+    <div class="diag-box">${svgs.arrangement}</div>
+  </div>
+
+  <div class="diag-section">
+    <h3>2. Circuit Diagram &mdash; ${modelLabel}</h3>
+    <div class="diag-box">${svgs.circuit}</div>
+  </div>
+
+  <div class="diag-section">
+    <h3>3. Phasor Diagram</h3>
+    <div class="diag-box">${svgs.phasor}</div>
+  </div>
+
+  <p class="footer">TADEE Group 7 — Transmission Line Analyser</p>
+</div>`;
+}
+
 // ─── Shared PDF stylesheet ────────────────────────────────────────────────────
 export const PDF_STYLES = `
   @font-face {
@@ -244,4 +279,13 @@ export const PDF_STYLES = `
   table.data tr:nth-child(even) td { background: #f5f5f5; }
   .val { font-family: 'Courier New', monospace; }
   .footer { font-size: 9pt; text-align: center; margin-top: 24px; color: #555; }
+  /* ── Diagrams page ───────────────────────────────────────────────────────── */
+  .diagrams-page h2 { margin-bottom: 8px; }
+  .diag-section { margin-bottom: 10px; }
+  .diag-section h3 { font-size: 11pt; font-weight: bold;
+                     margin: 0 0 3px; padding-bottom: 1px;
+                     border-bottom: 1px solid #ccc; }
+  .diag-box { border: 1px solid #808080; background: #fff;
+               overflow: hidden; line-height: 0; }
+  .diag-box svg { width: 100%; height: auto; display: block; }
 `;
