@@ -217,11 +217,11 @@ function _initDiagramSplitters(grid, splitterV, splitterH) {
     function onUp() {
       document.body.style.cursor     = '';
       document.body.style.userSelect = '';
-      splitterV.removeEventListener('pointermove', onMove);
-      splitterV.removeEventListener('pointerup',   onUp);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup',   onUp);
     }
-    splitterV.addEventListener('pointermove', onMove);
-    splitterV.addEventListener('pointerup',   onUp);
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup',   onUp);
   });
 
   // Horizontal splitter: drag up/down changes --dg-row1
@@ -241,11 +241,11 @@ function _initDiagramSplitters(grid, splitterV, splitterH) {
     function onUp() {
       document.body.style.cursor     = '';
       document.body.style.userSelect = '';
-      splitterH.removeEventListener('pointermove', onMove);
-      splitterH.removeEventListener('pointerup',   onUp);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup',   onUp);
     }
-    splitterH.addEventListener('pointermove', onMove);
-    splitterH.addEventListener('pointerup',   onUp);
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup',   onUp);
   });
 }
 

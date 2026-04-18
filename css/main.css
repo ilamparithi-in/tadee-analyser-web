@@ -692,6 +692,8 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
   border-left: 1px solid #808080;
   border-right: 1px solid #fff;
   z-index: 1;
+  touch-action: none;
+  position: relative;
 }
 .dg-splitter-h {
   grid-column: 1; grid-row: 2;
@@ -700,6 +702,17 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
   border-top: 1px solid #808080;
   border-bottom: 1px solid #fff;
   z-index: 1;
+  touch-action: none;
+  position: relative;
+}
+/* Expand touch hit area to ~44px without changing visual size */
+.dg-splitter-v::before {
+  content: ''; position: absolute;
+  left: -20px; right: -20px; top: 0; bottom: 0;
+}
+.dg-splitter-h::before {
+  content: ''; position: absolute;
+  top: -20px; bottom: -20px; left: 0; right: 0;
 }
 .dpane-title {
   flex: 0 0 auto;
