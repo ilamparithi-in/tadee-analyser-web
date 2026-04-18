@@ -423,11 +423,26 @@ function _runBatch(win) {
       showError(msg);
       return;
     }
-    const hasNaN = Object.values(base).some(v => typeof v === 'number' && isNaN(v));
-    if (hasNaN) {
-      const msg = 'Fill in all analyser fields before running a batch.';
-      statusEl.textContent = 'Error: fill all analyser fields first.'; statusEl.style.color = '#c00';
-      showError(msg);
+    const isUnsym = base.symmetric === 0;
+    const missingFields = Object.entries(base).filter(([k, val]) => {
+      if (k === 'phaseSpacingM' && isUnsym) return false;
+      if ((k === 'Dab' || k === 'Dbc' || k === 'Dca') && !isUnsym) return false;
+      return typeof val === 'number' && isNaN(val);
+    });
+    if (missingFields.length) {
+      const FIELD_LABELS = {
+        lineLengthKm: 'Line Length',         recvLoadMW:    'Receiving Load',
+        recvPF:       'Power Factor',         nomSyskV:      'System Voltage',
+        frequency:    'Frequency',            Dab:           'Phase Spacing Dab',
+        Dbc:          'Phase Spacing Dbc',    Dca:           'Phase Spacing Dca',
+        phaseSpacingM:'Phase Spacing',        scSpacingM:    'Sub-conductor Spacing',
+        scStrands:    'Number of Strands',    strandDiaM:    'Strand Diameter',
+        resSCPerKm:   'AC Resistance',
+      };
+      const shortList = missingFields.map(([k]) => FIELD_LABELS[k] ?? k).join(', ');
+      const bulletList = missingFields.map(([k]) => '\u2022 ' + (FIELD_LABELS[k] ?? k)).join('\n');
+      statusEl.textContent = 'Error: fill these fields: ' + shortList; statusEl.style.color = '#c00';
+      showError('Fill in these analyser fields:\n\n' + bulletList);
       return;
     }
 

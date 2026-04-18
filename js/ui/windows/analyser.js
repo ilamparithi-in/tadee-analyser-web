@@ -650,11 +650,22 @@ function _compute(win) {
   // phaseSpacingM is hidden (and unused) when unsymmetric — skip it in that case
   const bad = Object.entries(params).filter(([k, val]) => {
     if (k === 'phaseSpacingM' && isUnsym) return false;
+    if ((k === 'Dab' || k === 'Dbc' || k === 'Dca') && !isUnsym) return false; // covered by phaseSpacingM when symmetric
     return isNaN(val) && typeof val !== 'string';
   });
   if (bad.length) {
-    if (sbStatus) sbStatus.textContent = 'Error: fill all fields';
-    showError('Please fill in all required fields before running the analysis.');
+    const FIELD_LABELS = {
+      lineLengthKm: 'Line Length',         recvLoadMW:    'Receiving Load',
+      recvPF:       'Power Factor',         nomSyskV:      'System Voltage',
+      frequency:    'Frequency',            Dab:           'Phase Spacing Dab',
+      Dbc:          'Phase Spacing Dbc',    Dca:           'Phase Spacing Dca',
+      phaseSpacingM:'Phase Spacing',        scSpacingM:    'Sub-conductor Spacing',
+      scStrands:    'Number of Strands',    strandDiaM:    'Strand Diameter',
+      resSCPerKm:   'AC Resistance',
+    };
+    const shortList = bad.map(([k]) => FIELD_LABELS[k] ?? k).join(', ');
+    if (sbStatus) sbStatus.textContent = 'Fill: ' + shortList;
+    showError('Fill in these fields:\n\n' + bad.map(([k]) => '\u2022 ' + (FIELD_LABELS[k] ?? k)).join('\n'));
     return;
   }
 

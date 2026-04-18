@@ -41,7 +41,7 @@ function _ensureDOM() {
     </div>
     <div class="window-body" style="display:flex;gap:12px;align-items:flex-start;padding:12px 12px 8px;">
       <img src="media/icons/msg_error-0.png" width="32" height="32" alt="" style="flex:0 0 32px;">
-      <p id="err-dialog-msg" style="margin:0;font-size:11px;line-height:1.5;word-break:break-word;"></p>
+      <p id="err-dialog-msg" style="margin:0;font-size:11px;line-height:1.5;word-break:break-word;white-space:pre-wrap;"></p>
     </div>
     <div style="display:flex;justify-content:center;padding:4px 12px 10px;">
       <button id="err-dialog-ok" style="min-width:75px;">OK</button>
