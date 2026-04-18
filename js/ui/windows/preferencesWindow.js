@@ -33,5 +33,11 @@ export function openPreferencesWindow(viewport) {
     content:     body,
   }, viewport);
 
+  // Make the window a flex column so window-body fills remaining height
+  _win.style.display       = 'flex';
+  _win.style.flexDirection = 'column';
+  const wb = _win.querySelector('.window-body');
+  if (wb) { wb.style.cssText += ';flex:1;min-height:0;overflow:hidden;padding:0;'; }
+
   _win._closeGuard = (proceed) => { _win = null; proceed(); };
 }

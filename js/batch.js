@@ -202,7 +202,7 @@ export function buildReportPage(inp, out, pageNum, total) {
     <tr><td>17</td><td>Surge impedance loading (SIL)</td><td class="val">${o.SIL.toFixed(4)}</td><td>MW</td></tr>
   </table>
 
-  <p class="footer">TADEE Group 7 — Transmission Line Analyser</p>
+  <p class="footer">TADEE Group 4 — Transmission Line Analyser</p>
 </div>`;
 }
 
@@ -237,7 +237,7 @@ export function buildDiagramPage(inp, svgs) {
     <div class="diag-box">${svgs.phasor}</div>
   </div>
 
-  <p class="footer">TADEE Group 7 — Transmission Line Analyser</p>
+  <p class="footer">TADEE Group 4 — Transmission Line Analyser</p>
 </div>`;
 }
 

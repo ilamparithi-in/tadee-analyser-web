@@ -62,7 +62,7 @@ export function initDesktop(containerEl) {
   const info = document.createElement('div');
   info.id = 'active-desktop-info';
   info.innerHTML =
-    '<div class="adi-title">TADEE Group 7</div>' +
+    '<div class="adi-title">TADEE Group 4</div>' +
     '<div class="adi-subtitle">Transmission Line Analyser</div>' +
     '<hr class="adi-sep" />' +
     '<ul class="adi-members">' +

@@ -3,7 +3,7 @@
  *
  * The analyser window element is statically authored in index.html with
  * id="win-analyser". This module initialises its interactive sub-components:
- * menu bar, splitter panels, results grid, and Three.js geometry viewer.
+ * menu bar, splitter panels, and results grid.
  *
  * @param {HTMLElement} viewport — the #viewport element (passed for consistency
  *                                 with the addWindow API, not used directly here)
@@ -395,7 +395,7 @@ const REPORT_META = {
   subtitle: 'Three-Phase Single-Circuit Bundled Conductor Transmission System',
   team:     'Ilamparithi Murali (107124046), Priyadarsan ST (107124084), Srijith M S (107124110)',
   date:     '17/04/2026',
-  footer:   'TADEE Group 7 \u2014 Transmission Line Analyser',
+  footer:   'TADEE Group 4 \u2014 Transmission Line Analyser',
 };
 
 /** Returns [[label, valueString], ...] for the input parameters section (mirrors PDF table). */
