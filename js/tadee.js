@@ -137,7 +137,9 @@ export class lineCalculations {
         else if (symmetry === 0) {
             MGMD = Math.cbrt(Dab * Dbc * Dca);
         }
-        const c = (2 * Math.PI * 8.85e-12 / Math.log(MGMD / SGMDc)) * 1000;
+        const logCapacitance = Math.log(MGMD / SGMDc);
+        if (logCapacitance === 0) throw new Error('Capacitance calculation error: MGMD equals SGMDc — check phase and sub-conductor spacing.');
+        const c = (2 * Math.PI * 8.85e-12 / logCapacitance) * 1000;
         const l = (2e-7 * Math.log(MGMD / SGMDl)) * 1000;
         return { inductance: l, capacitance: c };
 
@@ -149,7 +151,9 @@ export class lineCalculations {
         const lineLength = this.lineLength;
         const f = this.freq;
         const XL = 2 * Math.PI * f * l * lineLength;
-        const XC = 1 / (2 * Math.PI * f * (c * lineLength));
+        const denomXC = 2 * Math.PI * f * c * lineLength;
+        if (denomXC === 0) throw new Error('XC calculation error: frequency, capacitance, or line length is zero.');
+        const XC = 1 / denomXC;
         return { Reactance_L: XL, Reactance_C: XC };
     }
     RperCond() {
@@ -163,9 +167,6 @@ export class lineCalculations {
 
         const XL = this.XLandXC().Reactance_L;
         const XC = this.XLandXC().Reactance_C;
-        if (XC === 0) {
-            throw new Error('divide by 0 error!');
-        }
         const Y = new complex(0, 1 / XC);
         let A, B, C, D;
         const R = this.RperCond();
@@ -222,6 +223,7 @@ export class lineCalculations {
         const Vr = this.Vnom_kV;
         const loadMW = this.loadMW / 3;
         const pf = this.pf;
+        if (pf === 0) throw new Error('Power factor cannot be zero.');
         const S = new complex(loadMW, loadMW / pf * Math.sin(Math.acos(pf)));
         const Ir_star = S.divide(Vr); //kA
         const Ir = Ir_star.conjugate();
@@ -302,6 +304,7 @@ export class lineCalculations {
         const A = this.ABCDparams().A;
         const Vr = this.Vnom_kV;
         const mod_Vr_fullLoad = Vr; //cuz we already took only magnitude anyways
+        if (mod_Vr_fullLoad === 0) throw new Error('Voltage regulation error: receiving-end voltage is zero.');
         const Vs = this.Vs_kV_line_phase().phase;
         const mod_Vr_noLoad = Vs.modulus() / A.modulus();
         const percent_VR = (mod_Vr_noLoad - mod_Vr_fullLoad) / mod_Vr_fullLoad * 100;
@@ -318,18 +321,21 @@ export class lineCalculations {
         const S_receiving = Ir_star.multiply(Vr); //Vr isnt complex class after all.. ilam if you think this is unsafe mabye change Vr into complex before the calculations im too lazy to do that.
         const power_loss = S_sending.subtract(S_receiving).multiply(3); //total 3 phase loss
         const power_loss_MW = power_loss.re;
+        if (S_sending.re === 0) throw new Error('Efficiency calculation error: sending-end active power is zero.');
         const efficiency = S_receiving.re / S_sending.re; //single phase and three phase efficiency same
         return { power_loss_MW: power_loss_MW, efficiency: efficiency };
     }
     Zc() {
         const l = this.LandCperPhasePerKm().inductance / 1000;
         const c = this.LandCperPhasePerKm().capacitance / 1000;
+        if (c === 0) throw new Error('Characteristic impedance error: capacitance is zero.');
         const Zc = Math.sqrt(l / c);
         return Zc;
 
     }
     SIL_MW() {
         const Zc = this.Zc(); //ohms
+        if (Zc === 0) throw new Error('SIL calculation error: characteristic impedance is zero.');
         const Vr = this.Vnom_kV; //kV
         const SIL = (Vr * Vr) / Zc * 3; //three phase load consumption
         return SIL;
