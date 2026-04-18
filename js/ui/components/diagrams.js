@@ -190,6 +190,7 @@ let _phasorAC     = null;
 let _phasorG      = null;
 let _phasorLabels    = true;  // show arm names + values table
 let _phasorLegendEl = null;   // DOM element for V/I scale legend in bottom bar
+let _phasorChkWrap  = null;   // labels checkbox wrapper — hidden until first compute
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
@@ -261,6 +262,7 @@ export function initDiagramContainer(container) {
   _circuitG    = null;
   _phasorG        = null;
   _phasorLegendEl = null;
+  _phasorChkWrap  = null;
   _bottomBar      = null;
   _viewCircuit = { zoom: 1, panX: 0, panY: 0 };
   _viewPhasor  = { zoom: 1, panX: 0, panY: 0 };
@@ -395,6 +397,8 @@ export function initDiagramContainer(container) {
   lblLbls.setAttribute('for', 'dpane-phasor-labels-chk');
   lblLbls.textContent = 'Labels';
   chkWrap3.append(chkLbls, lblLbls);
+  chkWrap3.style.display = 'none';
+  _phasorChkWrap = chkWrap3;
   bottomBar3.appendChild(chkWrap3);
   svgWrap3.appendChild(bottomBar3);
   body3.appendChild(svgWrap3);
@@ -1931,6 +1935,7 @@ function _redrawPhasor(inputs, outputs) {
   _phasorG = _el('g');
   svg.appendChild(_phasorG);
   _applyPhasorTransform();
+  if (_phasorChkWrap) _phasorChkWrap.style.display = '';
   const sw = svg.clientWidth  || 400;
   const sh = svg.clientHeight || 300;
   if      (inputs.model === 0) _drawShortPhasor(_phasorG, svg, sw, sh, inputs, outputs);

@@ -708,11 +708,11 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
 /* Expand touch hit area to ~44px without changing visual size */
 .dg-splitter-v::before {
   content: ''; position: absolute;
-  left: -20px; right: -20px; top: 0; bottom: 0;
+  left: -6px; right: -6px; top: 0; bottom: 0;
 }
 .dg-splitter-h::before {
   content: ''; position: absolute;
-  top: -20px; bottom: -20px; left: 0; right: 0;
+  top: -6px; bottom: -6px; left: 0; right: 0;
 }
 .dpane-title {
   flex: 0 0 auto;
