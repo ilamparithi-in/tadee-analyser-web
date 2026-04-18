@@ -96,7 +96,7 @@ export function initAnalyserWindow(viewport) {
   if (btnLoad) btnLoad.addEventListener('click', () => _loadInputs(win));
 
   const btnExport = win.querySelector('#btn-export-output');
-  if (btnExport) btnExport.addEventListener('click', () => _exportOutput(win));
+  if (btnExport) btnExport.addEventListener('click', () => _exportPdf(win));
 
   const menuSaveAsPdf = win.querySelector('#menu-save-as-pdf');
   if (menuSaveAsPdf) menuSaveAsPdf.addEventListener('click', () => _exportPdf(win));

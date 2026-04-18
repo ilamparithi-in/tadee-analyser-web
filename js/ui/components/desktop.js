@@ -1,4 +1,12 @@
 import { raiseWindow, maximizeWindow } from './windowManager.js';
+import { showConfirm } from './errorDialog.js';
+
+function _openExternal(url) {
+  showConfirm(
+    `You are about to open an external link:<br><br><b>${url}</b><br><br>Do you want to continue?`,
+    () => window.open(url, '_blank', 'noopener,noreferrer')
+  );
+}
 
 const ICONS = [
   {
@@ -6,13 +14,14 @@ const ICONS = [
     label: 'My Computer',
     img:   'media/icons/computer_explorer_cool-0.png',
     action() {
-      window.open('https://github.com/ilamparithi-in', '_blank', 'noopener,noreferrer');
+      _openExternal('https://github.com/ilamparithi-in');
     },
   },
   {
     id:    'icon-tla',
     label: 'Transmission\nLine Analyser',
     img:   'media/icons/network_drive-5.png',
+    hint:  '◄◄◄◄ Double-click here to start',
     action() {
       const win = document.getElementById('win-analyser');
       if (!win) return;
@@ -27,6 +36,15 @@ const ICONS = [
       win.style.top    = '20px';
       raiseWindow(win);
       maximizeWindow(win);
+    },
+  },
+  {
+    id:    'icon-source',
+    label: 'View Source\nCode',
+    img:   'media/icons/console_prompt-0.png',
+    overlay: 'media/icons/overlay_shortcut-1.png',
+    action() {
+      _openExternal('https://github.com/ilamparithi-in/tadee-analyser-web');
     },
   },
 ];
@@ -71,8 +89,15 @@ export function initDesktop(containerEl) {
   legal.innerHTML =
     'Windows\u00ae is a registered trademark of Microsoft Corporation.<br>' +
     'This project is not affiliated with or endorsed by Microsoft.<br>' +
-    'UI styles by <a href="https://github.com/jdan/98.css" target="_blank" rel="noopener noreferrer">98.css</a> (MIT). ' +
-    'Icons from <a href="https://win98icons.alexmeub.com/" target="_blank" rel="noopener noreferrer">win98icons.alexmeub.com</a>.';
+    'UI styles by <a data-ext-url="https://github.com/jdan/98.css">98.css</a> (MIT). ' +
+    'Icons from <a data-ext-url="https://win98icons.alexmeub.com/">win98icons.alexmeub.com</a>.';
+  legal.querySelectorAll('a[data-ext-url]').forEach(a => {
+    a.href = '#';
+    a.addEventListener('click', e => {
+      e.preventDefault();
+      _openExternal(a.dataset.extUrl);
+    });
+  });
   containerEl.appendChild(legal);
 
   // Deselect all icons when clicking blank desktop space
@@ -89,7 +114,7 @@ function _deselectAll() {
   document.querySelectorAll('.desktop-icon.selected').forEach(i => i.classList.remove('selected'));
 }
 
-function _createIcon({ id, label, img: imgSrc, action }) {
+function _createIcon({ id, label, img: imgSrc, overlay, hint, action }) {
   const el = document.createElement('div');
   el.className = 'desktop-icon';
   el.id = id;
@@ -97,7 +122,14 @@ function _createIcon({ id, label, img: imgSrc, action }) {
   const img = document.createElement('div');
   img.className = 'desktop-icon-img';
   img.setAttribute('aria-hidden', 'true');
-  if (imgSrc) img.style.backgroundImage = `url('${imgSrc}')`;
+  if (imgSrc && overlay) {
+    img.style.backgroundImage = `url('${overlay}'), url('${imgSrc}')`;
+    img.style.backgroundSize = 'contain, contain';
+    img.style.backgroundRepeat = 'no-repeat, no-repeat';
+    img.style.backgroundPosition = 'center, center';
+  } else if (imgSrc) {
+    img.style.backgroundImage = `url('${imgSrc}')`;
+  }
 
   const lbl = document.createElement('span');
   lbl.className = 'desktop-icon-label';
@@ -106,8 +138,22 @@ function _createIcon({ id, label, img: imgSrc, action }) {
   el.appendChild(img);
   el.appendChild(lbl);
 
+  // Optional hint label (disappears on first open)
+  let hintEl = null;
+  if (hint) {
+    hintEl = document.createElement('span');
+    hintEl.className = 'desktop-icon-hint';
+    hintEl.textContent = hint;
+    el.appendChild(hintEl);
+  }
+
+  function _trigger() {
+    if (hintEl) { hintEl.remove(); hintEl = null; }
+    action();
+  }
+
   // Double-click (mouse) or double-tap (touch) opens the icon
-  el.addEventListener('dblclick', () => action());
+  el.addEventListener('dblclick', () => _trigger());
 
   // Touch double-tap: two taps within 300 ms
   let _lastTap = 0;
@@ -117,7 +163,7 @@ function _createIcon({ id, label, img: imgSrc, action }) {
     if (now - _lastTap < 300) {
       e.preventDefault();
       e.stopPropagation(); // prevent viewport deactivation from undoing the focus
-      action();
+      _trigger();
       _lastTap = 0;
     } else {
       _lastTap = now;

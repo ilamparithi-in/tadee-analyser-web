@@ -45,6 +45,7 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
   pointer-events: auto;
 }
 .desktop-icon {
+  position: relative;
   display: flex; flex-direction: column; align-items: center;
   width: 72px; gap: 4px;
   padding: 4px;
@@ -75,6 +76,16 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
   text-shadow: 1px 1px #000;
   word-break: break-word; line-height: 1.2;
   max-width: 72px;
+}
+.desktop-icon-hint {
+  position: absolute;
+  left: 80px; top: 14px;
+  white-space: nowrap;
+  font-size: 11px;
+  color: #fff;
+  text-shadow: 1px 1px 0 #000;
+  pointer-events: none;
+  font-family: 'Pixelated MS Sans Serif', sans-serif;
 }
 /* Override min-width for minimized windows so the animate can shrink them */
 .window.minimized { min-width: 0 !important; min-height: 0 !important; }
@@ -171,7 +182,7 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
   bottom: 12px; right: 12px;
   max-width: 340px;
   font-family: 'Pixelated MS Sans Serif', sans-serif;
-  font-size: 9px;
+  font-size: 11px;
   color: rgba(255,255,255,1.0);
   text-shadow: 1px 1px 0 rgba(0,0,0,0.6);
   text-align: right;
