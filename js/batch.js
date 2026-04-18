@@ -34,7 +34,7 @@ export const RANGEABLE_FIELDS = [
   { id: 'scSpacingM',    label: 'Sub-conductor spacing',               unit: 'm'    },
   { id: 'scStrands',     label: 'Strands per sub-conductor',           unit: ''     },
   { id: 'strandDiaM',    label: 'Strand diameter',                     unit: 'm'    },
-  { id: 'resSCPerKm',    label: 'AC resistance / sub-conductor',       unit: 'Ω/km' },
+  { id: 'resSCPerKm',    label: 'AC resistance per sub-conductor',       unit: 'Ω/km' },
 ];
 
 // Required numeric keys in every entry (used for validation).

@@ -15,7 +15,7 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 const FONT   = "'Pixelated MS Sans Serif', 'MS Sans Serif', sans-serif";
 
 const MIN_R_PX = 3;           // minimum visible sub-conductor radius in screen px
-const FIXED_R_PX          = 10; // sub-conductor radius in good-looking (not-to-scale) mode
+const FIXED_R_PX          = 7; // sub-conductor radius in good-looking (not-to-scale) mode
 const TO_SCALE_R_PX        = 4;  // fixed small radius in to-scale mode — zoom in to see conductors
 const FIXED_SC_SPACING_PX = 30; // sub-conductor spacing in good-looking mode
 
@@ -156,6 +156,10 @@ let _view = { zoom: 1, panX: 0, panY: 0 };
 // The <g> element that wraps all drawn SVG content inside _svgBundle.
 let _bundleG = null;
 
+// Separate overlay <g> for phase dim lines + labels — gets translate-only transform
+// so annotations stay fixed screen-size while the conductors zoom.
+let _annotG  = null;
+
 // AbortController for Pane 1 event listeners — cleaned up on reinit
 let _bundleAC = null;
 
@@ -195,6 +199,7 @@ export function initDiagramContainer(container) {
   container.innerHTML = '';
   _bs.inputs   = null;
   _bundleG     = null;
+  _annotG      = null;
   _circuitG    = null;
   _phasorG     = null;
   _bottomBar   = null;
@@ -446,6 +451,7 @@ function _zoomAround(pivotX, pivotY, factor) {
   _view.panY = pivotY + (_view.panY - pivotY) * factor;
   _view.zoom *= factor;
   _applyViewTransform();
+  _redrawAnnotations(); // zoom changes annotation coords — must redraw
 }
 
 function _touchDist(touches) {
@@ -454,11 +460,13 @@ function _touchDist(touches) {
   return Math.sqrt(dx * dx + dy * dy);
 }
 
-/** Apply the current _view transform to the content group — no redraw needed. */
+/** Apply the current _view transform to the content groups — no redraw needed for pan. */
 function _applyViewTransform() {
   if (!_bundleG) return;
   _bundleG.setAttribute('transform',
     `translate(${_view.panX},${_view.panY}) scale(${_view.zoom})`);
+  // Annotation layer gets only the pan translate; zoom is baked into coords inside _redrawAnnotations.
+  if (_annotG) _annotG.setAttribute('transform', `translate(${_view.panX},${_view.panY})`);
 }
 
 // ─── Zoom / pan for Pane 2 (circuit diagram) ─────────────────────────────────
@@ -627,26 +635,43 @@ export function phasePositions(inputs) {
     };
   }
 
-  // Asymmetric: place A at (0,0), B at (Dab, 0), compute C
+  // Asymmetric: orient with the longest edge as horizontal base (two phases at
+  // the bottom, one at the top), then centre on the centroid.
   const ab = inputs.Dab, bc = inputs.Dbc, ca = inputs.Dca;
-  const cxRaw = (ca * ca + ab * ab - bc * bc) / (2 * ab);
-  const cy2   = ca * ca - cxRaw * cxRaw;
-  const cyRaw = cy2 > 0 ? +Math.sqrt(cy2) : 0; // C below AB → downward in SVG
 
-  const gx = (0 + ab + cxRaw) / 3;
-  const gy = (0 + 0  + cyRaw) / 3;
-  return {
-    A: [0      - gx,   0      - gy],
-    B: [ab     - gx,   0      - gy],
-    C: [cxRaw  - gx,   cyRaw  - gy],
-  };
+  // Choose P1/P2 as the longest-side pair; P3 is the apex.
+  let D12, D13, D23, P1n, P2n, P3n;
+  if (ab >= bc && ab >= ca) {
+    D12 = ab; D13 = ca; D23 = bc; P1n = 'A'; P2n = 'B'; P3n = 'C';
+  } else if (bc >= ab && bc >= ca) {
+    D12 = bc; D13 = ab; D23 = ca; P1n = 'B'; P2n = 'C'; P3n = 'A';
+  } else {
+    D12 = ca; D13 = bc; D23 = ab; P1n = 'C'; P2n = 'A'; P3n = 'B';
+  }
+
+  // Place P1 at (−D12/2, 0) and P2 at (+D12/2, 0) on the base line.
+  // Solve for apex P3 using the two known edge lengths.
+  const px  = (D13 * D13 - D23 * D23) / (2 * D12);
+  const py2 = D13 * D13 - (px + D12 / 2) * (px + D12 / 2);
+  // py is negative so the apex sits ABOVE the base in SVG (smaller y = higher).
+  const py  = py2 > 0 ? -Math.sqrt(py2) : 0;
+
+  // Centre on centroid.
+  const gx = px / 3;          // gx = (−D12/2 + D12/2 + px) / 3
+  const gy = py / 3;          // gy < 0
+
+  const result = {};
+  result[P1n] = [-D12 / 2 - gx, -gy]; // base-left  (y > 0 → lower on screen)
+  result[P2n] = [+D12 / 2 - gx, -gy]; // base-right (y > 0 → lower on screen)
+  result[P3n] = [px - gx,  py - gy];  // apex       (y < 0 → higher on screen)
+  return result;
 }
 
 function _fitBundleView() {
   _view = { zoom: 1, panX: 0, panY: 0 };
   const svg = _svgBundle;
-  const sw  = svg.clientWidth  || 300;
-  const sh  = svg.clientHeight || 300;
+  const sw  = Math.max(svg.clientWidth  || 300, 385);
+  const sh  = Math.max(svg.clientHeight || 300, 300);
 
   if (!_bs.inputs) {
     _bs.scale = (Math.min(sw, sh) * 0.3) / 0.04;
@@ -682,6 +707,9 @@ function _redrawArrangement() {
   svgEl.innerHTML = '';
   _bundleG = _el('g');
   svgEl.appendChild(_bundleG);
+  // Annotation layer sits above conductors; translate-only (no scale applied here).
+  _annotG = _el('g');
+  svgEl.appendChild(_annotG);
 
   if (!_bs.inputs) {
     if (_overlayRadius) _overlayRadius.textContent = '';
@@ -701,7 +729,7 @@ function _redrawArrangement() {
 
   // In to-scale mode circles are fixed tiny dots so positions are to scale;
   // zoom in to see them spread apart properly.
-  const dispR       = _toScale ? TO_SCALE_R_PX : FIXED_R_PX;
+  const dispR       = _toScale ? rPhys * scale : FIXED_R_PX;
   const dispSpacing = _toScale ? scSpacingM * scale : FIXED_SC_SPACING_PX;
 
   // Outermost rim of a bundle in screen px — used as offset base for phase dims
@@ -709,57 +737,20 @@ function _redrawArrangement() {
 
   const phases = phasePositions(_bs.inputs);
 
-  // ── Phase spacing dimension lines (drawn first, behind bundles) ──────────
-  const sym = _bs.inputs.symmetric === 1 || _bs.inputs.symmetric === '1';
-
+  // ── Bundles (drawn into _bundleG which scales with zoom) ──────────────────
+  const PHASE_ORDER = ['A', 'B', 'C'];
   const scr = ph => {
     const [wx, wy] = phases[ph];
     return [tx + wx * scale, ty + wy * scale];
   };
-
-  if (sym) {
-    const D = _bs.inputs.phaseSpacingM;
-    const dLabel = `D = ${D.toFixed(1)}\u00a0m`;
-    _drawPhaseDim(_bundleG, scr('A'), scr('B'), bundleExtent, dLabel);
-  } else {
-    const fmt = v => v >= 1 ? `${v.toFixed(1)}\u00a0m` : `${(v * 100).toFixed(1)}\u00a0cm`;
-    _drawPhaseDim(_bundleG, scr('A'), scr('B'), bundleExtent, `Dab = ${fmt(_bs.inputs.Dab)}`, 'top');
-    _drawPhaseDim(_bundleG, scr('B'), scr('C'), bundleExtent, `Dbc = ${fmt(_bs.inputs.Dbc)}`, 'top');
-    // Dca: drop vertical lines from A and C down to a common lower level, then arrow between them
-    _drawDcaHorizDim(
-      _bundleG, scr('A'), scr('C'),
-      [scr('A'), scr('B'), scr('C')], bundleExtent,
-      `Dca = ${fmt(_bs.inputs.Dca)}`,
-    );
-  }
-
-  // ── Bundles ───────────────────────────────────────────────────────────────
-  const PHASE_ORDER = ['A', 'B', 'C'];
   PHASE_ORDER.forEach((ph, i) => {
     const [cx, cy] = scr(ph);
+    // scSpacingM is passed null here — spacing dim goes into the annotation layer
     _drawBundle(
       _bundleG, cx, cy, scCount, dispR, dispSpacing,
-      i === 0 ? rPhys    : null,   // radius annotation only on A
-      i === 0 ? scSpacingM : null, // sub-cond spacing dim only on A
+      i === 0 ? rPhys : null,
+      null,
     );
-  });
-
-  // ── Phase labels ─────────────────────────────────────────────────────────
-  const PHASE_COLORS = { A: '#cc0000', B: '#ccaa00', C: '#0000cc' };
-  PHASE_ORDER.forEach(ph => {
-    const [cx, cy] = scr(ph);
-    // Place label below bundle centre so it doesn't cover sub-conductors
-    const labelY = cy + dispR + 13;
-    for (const [stroke, fill] of [['#fff', 'none'], ['none', PHASE_COLORS[ph]]]) {
-      const t = _el('text', {
-        x: cx, y: labelY,
-        'text-anchor': 'middle', 'dominant-baseline': 'middle',
-        'font-family': FONT, 'font-size': '12', 'font-weight': 'bold',
-        fill, stroke, 'stroke-width': '3',
-      });
-      t.textContent = ph;
-      _bundleG.appendChild(t);
-    }
   });
 
   // Update bottom-bar overlays
@@ -768,7 +759,97 @@ function _redrawArrangement() {
   }
   _drawScaleBadge();
   _applyViewTransform();
+  // Dim lines and labels go into the non-scaling annotation layer.
+  _redrawAnnotations();
 }
+
+/**
+ * Redraw the annotation layer (_annotG): phase dimension lines + phase labels.
+ * _annotG gets only a pan translate (no scale), so all drawn elements stay
+ * fixed in screen-pixel size.  Positions are pre-multiplied by _view.zoom so
+ * the dim endpoints track the zoomed conductor positions correctly.
+ */
+function _redrawAnnotations() {
+  if (!_annotG) return;
+  _annotG.innerHTML = '';
+  if (!_bs.inputs) return;
+
+  _annotG.setAttribute('transform', `translate(${_view.panX},${_view.panY})`);
+
+  const { scCount, scStrands, strandDiaM, scSpacingM } = _bs.inputs;
+  const { tx, ty, scale } = _bs;
+  const z = _view.zoom;
+
+  const layers = (3 + Math.sqrt(12 * scStrands - 3)) / 6;
+  const rPhys  = (2 * layers - 1) * strandDiaM / 2;
+  const dispR       = _toScale ? rPhys * scale : FIXED_R_PX;
+  const dispSpacing = _toScale ? scSpacingM * scale : FIXED_SC_SPACING_PX;
+
+  // Bundle outer-rim scaled into annotation coordinate space.
+  const bundleExtent = (dispSpacing / 2 + dispR) * z;
+
+  const phases = phasePositions(_bs.inputs);
+  // Coords inside _annotG are base-position × zoom (no extra translate — that is
+  // the group's own transform).
+  const scr = ph => {
+    const [wx, wy] = phases[ph];
+    return [(tx + wx * scale) * z, (ty + wy * scale) * z];
+  };
+
+  // ── Phase spacing dimension lines (drawn first, behind labels) ────────────
+  const sym = _bs.inputs.symmetric === 1 || _bs.inputs.symmetric === '1';
+  if (sym) {
+    const D = _bs.inputs.phaseSpacingM;
+    _drawPhaseDim(_annotG, scr('A'), scr('B'), bundleExtent, `D = ${D.toFixed(1)}\u00a0m`);
+  } else {
+    const fmt = v => v >= 1 ? `${v.toFixed(1)}\u00a0m` : `${(v * 100).toFixed(1)}\u00a0cm`;
+    _drawPhaseDim(_annotG, scr('A'), scr('B'), bundleExtent, `Dab = ${fmt(_bs.inputs.Dab)}`, 'top');
+    _drawPhaseDim(_annotG, scr('B'), scr('C'), bundleExtent, `Dbc = ${fmt(_bs.inputs.Dbc)}`, 'top');
+    _drawDcaHorizDim(
+      _annotG, scr('A'), scr('C'),
+      [scr('A'), scr('B'), scr('C')], bundleExtent,
+      `Dca = ${fmt(_bs.inputs.Dca)}`,
+    );
+  }
+
+  // ── Sub-conductor spacing annotation (phase A, non-scaling) ───────────────
+  if (scCount >= 2) {
+    const dispRZ       = dispR * z;
+    const dispSpacingZ = dispSpacing * z;
+    const offsetsZ     = bundleOffsets(scCount, dispSpacingZ);
+    const [acx, acy]   = scr('A');
+    const [dx0, dy0]   = offsetsZ[0];
+    const [dx1, dy1]   = offsetsZ[1];
+    const sCm = (scSpacingM * 100).toFixed(1);
+    _drawSpacingDim(
+      _annotG,
+      acx + dx0, acy + dy0,
+      acx + dx1, acy + dy1,
+      dispRZ,
+      `s = ${sCm}\u00a0cm`,
+    );
+  }
+
+  // ── Phase labels ──────────────────────────────────────────────────────────
+  const PHASE_COLORS = { A: '#cc0000', B: '#ccaa00', C: '#0000cc' };
+  ['A', 'B', 'C'].forEach(ph => {
+    const [cx, cy] = scr(ph);
+    // Keep label gap fixed at 13px but offset from the zoomed bundle rim.
+    const labelY = cy + dispR * z + 13;
+    for (const [stroke, fill] of [['#fff', 'none'], ['none', PHASE_COLORS[ph]]]) {
+      const t = _el('text', {
+        x: cx, y: labelY,
+        'text-anchor': 'middle', 'dominant-baseline': 'middle',
+        'font-family': FONT, 'font-size': '12', 'font-weight': 'bold',
+        fill, stroke, 'stroke-width': '3',
+      });
+      t.textContent = ph;
+      _annotG.appendChild(t);
+    }
+  });
+}
+
+
 /**
  * Engineering dimension line between two bundle screen centres.
  * The dim line runs directly from centre A to centre B (no offset).
@@ -809,10 +890,12 @@ function _drawPhaseDim(svg, pA, pB, bundleExtent, label, side = null) {
     // pick the direction whose y-component is more positive (points downward in SVG)
     [px, py] = p1y >= p2y ? [p1x, p1y] : [p2x, p2y];
   } else {
-    // auto: outward from centroid (world origin maps to _bs.tx, _bs.ty)
+    // auto: outward from centroid. Annotation coords are pre-multiplied by _view.zoom,
+    // so the centroid reference must also be zoom-scaled.
     const { tx, ty } = _bs;
-    const omx = (ax + bx) / 2 - tx;
-    const omy = (ay + by) / 2 - ty;
+    const z = _view.zoom;
+    const omx = (ax + bx) / 2 - tx * z;
+    const omy = (ay + by) / 2 - ty * z;
     const omLen = Math.sqrt(omx * omx + omy * omy);
     px = omLen > 0.001 ? omx / omLen : +uy;
     py = omLen > 0.001 ? omy / omLen : -ux;

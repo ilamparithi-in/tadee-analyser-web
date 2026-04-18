@@ -599,7 +599,7 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
   flex: 1;
   position: relative;
   display: grid;
-  grid-template-columns: 1fr 2fr;
+  grid-template-columns: 200px 1fr;
   grid-template-rows: 1fr 1fr;
   overflow: auto;
   min-height: 0;
@@ -612,7 +612,7 @@ body { margin: 0; padding: 0; overflow: hidden; height: 100vh; background: teal;
   min-height: 0; min-width: 0;
 }
 .dpane-arrangement { grid-column: 1; grid-row: 1; }
-.dpane-circuit     { grid-column: 2; grid-row: 1 / 3; border-right: none; min-width: 500px; }
+.dpane-circuit     { grid-column: 2; grid-row: 1 / 3; border-right: none; }
 .dpane-phasor      { grid-column: 1; grid-row: 2; border-bottom: none; }
 .dpane-title {
   flex: 0 0 auto;
