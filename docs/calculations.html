@@ -181,15 +181,35 @@ sub-conductor per km.</p>
 <h3>10. Charging Current</h3>
 
 <p>
-  Charging current is the current that flows when no load is connected, i.e.\ \(\mathbf{I}_R = 0\).
-  Under no-load, the sending-end voltage drives the line:
+  Charging current is the capacitive current that flows due to the shunt admittance of the line.
+  \(\mathbf{V}_R\) is the nominal receiving-end phase voltage
+  (\(V_{\text{nom}}/\sqrt{3}\,\angle 0°\)) and \(\mathbf{V}_S\) is the loaded sending-end voltage.
+</p>
+
+<h4>10a. Nominal \(\pi\) Model (\(\texttt{model}=1\))</h4>
+<p>
+  The total shunt admittance \(\mathbf{Y} = j\omega C\) is split equally between the two ends.
+  Each half carries a capacitive current proportional to the voltage across it:
 </p>
 \[
-  \mathbf{V}_{R,\text{no-load}} = \frac{\mathbf{V}_S}{\mathbf{A}}
+  I_{C1} = \frac{\mathbf{Y}}{2}\,\mathbf{V}_R, \qquad
+  I_{C2} = \frac{\mathbf{Y}}{2}\,\mathbf{V}_S
 \]
-<p>Substituting \(\mathbf{I}_R = 0\) into \(\mathbf{I}_S = \mathbf{C}\mathbf{V}_R + \mathbf{D}\mathbf{I}_R\):</p>
 \[
-  \mathbf{I}_c = \mathbf{C}\,\mathbf{V}_{R,\text{no-load}} \quad \text{A} \quad (\texttt{Ic})
+  \mathbf{I}_c = I_{C1} + I_{C2} \quad \text{A} \quad (\texttt{Ic})
+\]
+<p>
+  Note: \(I_{C2}\) uses the loaded \(\mathbf{V}_S\), not \(\mathbf{V}_R\).
+  Therefore \(\mathbf{I}_c \neq \mathbf{C}\,\mathbf{V}_R\) in general during loaded operation.
+</p>
+
+<h4>10b. Distributed Model (\(\texttt{model}=2\))</h4>
+<p>
+  With \(\mathbf{I}_R = 0\) and \(\mathbf{V}_R\) held at nominal, the ABCD relation
+  \(\mathbf{I}_S = \mathbf{C}\,\mathbf{V}_R + \mathbf{D}\,\mathbf{I}_R\) gives directly:
+</p>
+\[
+  \mathbf{I}_c = \mathbf{C}\,\mathbf{V}_R \quad \text{A} \quad (\texttt{Ic})
 \]
 
 <!-- ─── 11. Surge Impedance & SIL ─────────────────────────────────────────── -->

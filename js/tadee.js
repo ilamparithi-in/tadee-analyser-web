@@ -255,14 +255,48 @@ export class lineCalculations {
 
     }
     Icharging_A() {
-        const A = this.ABCDparams().A;
-        const B = this.ABCDparams().B;
-        const C = this.ABCDparams().C;
-        const D = this.ABCDparams().D;
+        const model = this.model;
+
+        const Vr = new complex(this.Vnom_kV, 0);
         const Vs = this.Vs_kV_line_phase().phase;
-        const Vr_noload = Vs.divide(A);
-        const Icharging_A = C.multiply(Vr_noload).multiply(1000);
-        return Icharging_A;
+
+        if (model === 1) {
+            // Nominal π model
+            const XC = this.XLandXC().Reactance_C;
+            const Y = new complex(0, 1 / XC);
+
+            const IC1 = Y.divide(2).multiply(Vr);
+            const IC2 = Y.divide(2).multiply(Vs);
+
+            return IC1.add(IC2).multiply(1000);
+        }
+
+        else if (model === 2) {
+            // Distributed model (using C * Vr)
+            const C = this.ABCDparams().C;
+            return C.multiply(Vr).multiply(1000);
+        }
+
+        else {
+            return new complex(0, 0);
+        }
+    }
+    Icharging_components_A() {
+        // Returns { IC1, IC2 } in Amperes for the nominal π model only.
+        // IC1 = (Y/2)·VR  (receiving-end shunt, leads VR by 90°)
+        // IC2 = (Y/2)·VS  (sending-end shunt, leads VS by 90°)
+        // Returns null for short line and distributed models (no lumped π split).
+        if (this.model !== 1) return null;
+
+        const Vr = new complex(this.Vnom_kV, 0);
+        const Vs = this.Vs_kV_line_phase().phase;
+        const XC = this.XLandXC().Reactance_C;
+        const Y = new complex(0, 1 / XC);
+
+        const IC1 = Y.divide(2).multiply(Vr).multiply(1000);
+        const IC2 = Y.divide(2).multiply(Vs).multiply(1000);
+
+        return { IC1, IC2 };
     }
     percent_VR() {
         const A = this.ABCDparams().A;
