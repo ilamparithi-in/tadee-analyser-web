@@ -2,7 +2,7 @@
 
 A browser-based tool for analysing balanced three-phase AC overhead transmission lines using standard ABCD-parameter methods. Built with a Windows 98-style interface using [98.css](https://github.com/jdan/98.css).
 
-**TADEE Group 4 — Version 1.0**
+**TADEE Group 4 — Version 1.1**
 
 ---
 
