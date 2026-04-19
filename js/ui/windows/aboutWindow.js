@@ -12,6 +12,9 @@
 import { openWindow }  from '../components/createWindow.js';
 import { raiseWindow } from '../components/windowManager.js';
 
+// ─── Version ──────────────────────────────────────────────────────────────────
+const APP_VERSION = '1.1';
+
 // ─── Module state ─────────────────────────────────────────────────────────────
 let _win = null;
 
@@ -53,7 +56,7 @@ export function openAboutWindow(viewport) {
       <div>
         <div style="font-weight:bold; font-size:13px;">TADEE Transmission Line Analyser</div>
         <div style="color:#555;">Three-Phase Single-Circuit Bundled Conductor Transmission System</div>
-        <div style="margin-top:2px;">Version 1.0 &nbsp;&mdash;&nbsp; TADEE Group 4</div>
+        <div style="margin-top:2px;">Version ${APP_VERSION} &nbsp;&mdash;&nbsp; TADEE Group 4</div>
       </div>
     </div>
     <hr style="margin:0 0 8px;" />
