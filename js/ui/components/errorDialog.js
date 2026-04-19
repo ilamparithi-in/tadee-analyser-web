@@ -113,6 +113,7 @@ let _cfmOkBtn     = null;
 let _cfmCancelBtn = null;
 let _cfmOnOk      = null;
 let _cfmOnCancel  = null;
+let _cfmOverlayEnabled = false;  // gates outside-tap dismissal
 
 function _ensureConfirmDOM() {
   if (_cfmOverlayEl) return;
@@ -155,7 +156,9 @@ function _ensureConfirmDOM() {
   _cfmOkBtn.addEventListener('click', ok);
   _cfmCancelBtn.addEventListener('click', cancel);
   win.querySelector('#cfm-dialog-close').addEventListener('click', cancel);
-  _cfmOverlayEl.addEventListener('click', e => { if (e.target === _cfmOverlayEl) cancel(); });
+  // Delay outside-tap dismissal so a lingering touch from opening the dialog
+  // cannot accidentally cancel it, while buttons remain instantly responsive.
+  _cfmOverlayEl.addEventListener('click', e => { if (_cfmOverlayEnabled && e.target === _cfmOverlayEl) cancel(); });
   document.addEventListener('keydown', e => {
     if (_cfmOverlayEl.style.display === 'none') return;
     if (e.key === 'Escape') cancel();
@@ -177,6 +180,9 @@ export function showConfirm(message, onOk, onCancel) {
   _cfmOnCancel = onCancel ?? null;
   _cfmOverlayEl.style.display = 'flex';
   _cfmOkBtn.focus();
+  // Delay outside-tap dismissal only, so a lingering touch cannot cancel the dialog.
+  _cfmOverlayEnabled = false;
+  setTimeout(() => { _cfmOverlayEnabled = true; }, 400);
   _playDing();
 }
 

@@ -680,7 +680,7 @@ function _exportPdf() {
 <title>Batch Analysis Report</title>
 <style>${PDF_STYLES}</style>
 </head>
-<body>${pages}</body>
+<body>${pages}<script>window.addEventListener('load',()=>window.print())<\/script></body>
 </html>`;
 
   const pw = window.open('', '_blank');
@@ -689,7 +689,6 @@ function _exportPdf() {
   pw.document.write(html);
   pw.document.close();
   pw.focus();
-  pw.print();
 }
 
 // ─── Utility ─────────────────────────────────────────────────────────────────

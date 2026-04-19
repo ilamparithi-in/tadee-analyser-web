@@ -652,14 +652,13 @@ function _initFileMenu(win, viewport) {
     };
     const page1 = buildReportPage(inputs, outputs, 1, 1);
     const page2 = buildDiagramPage(inputs, svgs);
-    const html = `<!DOCTYPE html>\n<html lang="en">\n<head><meta charset="UTF-8"/>\n<title>Transmission Line Analysis Report</title>\n<style>${PDF_STYLES}</style>\n</head>\n<body>${page1}\n${page2}</body>\n</html>`;
+    const html = `<!DOCTYPE html>\n<html lang="en">\n<head><meta charset="UTF-8"/>\n<title>Transmission Line Analysis Report</title>\n<style>${PDF_STYLES}</style>\n</head>\n<body>${page1}\n${page2}<script>window.addEventListener('load',()=>window.print())<\/script></body>\n</html>`;
     const pw = window.open('', '_blank');
     if (!pw) return;
     pw.document.open();
     pw.document.write(html);
     pw.document.close();
     pw.focus();
-    pw.print();
   });
 
   // Exit — same as title-bar Close button

@@ -410,7 +410,8 @@ export function initDiagramContainer(container) {
   btnZoomReset3.dataset.tooltip = 'Reset zoom';
   btnZoomReset3.addEventListener('click', () => {
     _viewPhasor = { zoom: 1, panX: 0, panY: 0 };
-    if (_phasorG) _phasorG.setAttribute('transform', '');
+    if (_bs.inputs && _lastOutputs) _redrawPhasor(_bs.inputs, _lastOutputs);
+    else if (_phasorG) _phasorG.setAttribute('transform', '');
   });
   controls3.appendChild(btnZoomReset3);
 
@@ -437,12 +438,15 @@ export function initDiagramContainer(container) {
 }
 
 export function updateDiagrams(inputs, outputs) {
-  _bs.inputs  = inputs;
+  _bs.inputs   = inputs;
   _lastOutputs = outputs;
-  _fitBundleView();
-  _redrawArrangement();
-  _redrawCircuit(inputs, outputs);
-  _redrawPhasor(inputs, outputs);
+  // Defer to rAF so SVG elements have layout dimensions before we fit/draw.
+  requestAnimationFrame(() => {
+    _fitBundleView();
+    _redrawArrangement();
+    _redrawCircuit(inputs, outputs);
+    _redrawPhasor(inputs, outputs);
+  });
 }
 
 // ─── Sub-conductor bundle geometry ───────────────────────────────────────────
@@ -648,7 +652,7 @@ function _initPhasorZoom(svg) {
     _viewPhasor.panX = px + (_viewPhasor.panX - px) * factor;
     _viewPhasor.panY = py + (_viewPhasor.panY - py) * factor;
     _viewPhasor.zoom *= factor;
-    _applyPhasorTransform();
+    if (_bs.inputs && _lastOutputs) _redrawPhasor(_bs.inputs, _lastOutputs);
   }, { passive: false, ...sig });
 
   let drag = null;
@@ -663,7 +667,7 @@ function _initPhasorZoom(svg) {
     _viewPhasor.panX += e.clientX - drag.x;
     _viewPhasor.panY += e.clientY - drag.y;
     drag = { x: e.clientX, y: e.clientY };
-    _applyPhasorTransform();
+    if (_phasorG) _phasorG.setAttribute('transform', `translate(${_viewPhasor.panX},${_viewPhasor.panY})`);
   }, sig);
   window.addEventListener('mouseup', () => {
     drag = null;
@@ -690,7 +694,7 @@ function _initPhasorZoom(svg) {
       _viewPhasor.panY = pinch.my + (_viewPhasor.panY - pinch.my) * f;
       _viewPhasor.zoom *= f;
       pinch.dist = d;
-      _applyPhasorTransform();
+      if (_bs.inputs && _lastOutputs) _redrawPhasor(_bs.inputs, _lastOutputs);
     }
   }, { passive: false, ...sig });
   svg.addEventListener('touchend', () => { pinch = null; }, { passive: true, ...sig });
@@ -1342,13 +1346,13 @@ function _redrawCircuit(inputs, outputs) {
   if (_distModeBtn)
     _distModeBtn.style.display = inputs.model === 2 ? '' : 'none';
 
-  if      (inputs.model === 0) _drawShortCircuit(_circuitG, sw, sh, inputs, outputs);
-  else if (inputs.model === 1) _drawNominalPiCircuit(_circuitG, sw, sh, inputs, outputs);
-  else if (_distMode === 'diff') _drawDistributedDiff(_circuitG, sw, sh, inputs, outputs);
-  else                           _drawDistributedCircuit(_circuitG, sw, sh, inputs, outputs);
+  if      (inputs.model === 0) _drawShortCircuit(_circuitG, svg, sw, sh, inputs, outputs);
+  else if (inputs.model === 1) _drawNominalPiCircuit(_circuitG, svg, sw, sh, inputs, outputs);
+  else if (_distMode === 'diff') _drawDistributedDiff(_circuitG, svg, sw, sh, inputs, outputs);
+  else                           _drawDistributedCircuit(_circuitG, svg, sw, sh, inputs, outputs);
 }
 
-function _drawShortCircuit(g, sw, sh, inputs, outputs) {
+function _drawShortCircuit(g, svg, sw, sh, inputs, outputs) {
   const PAD  = 30;
   const topY = Math.max(sh * 0.40, 90);
   const botY = topY + 56;
@@ -1390,7 +1394,7 @@ function _drawShortCircuit(g, sw, sh, inputs, outputs) {
   _drawCurrentArrow(g, serR + 3, rightX - 4, arrowY, 'IR');
 
   // ── Bottom-right values table ─────────────────────────────────────────────
-  _circuitValuesTable(g, sw, sh, [
+  _circuitValuesTable(svg, svg.clientWidth || sw, svg.clientHeight || sh, [
     { label: 'VS', value: _fmtPhasor(outputs.Vs_phase_kV.re, outputs.Vs_phase_kV.im, 'kV') },
     { label: 'VR', value: Vr_kV.toFixed(3) + '\u2220+0.0\u00b0\u00a0kV' },
     { label: 'IS', value: _fmtPhasor(IS.re, IS.im, 'kA', 3) },
@@ -1398,7 +1402,7 @@ function _drawShortCircuit(g, sw, sh, inputs, outputs) {
   ]);
 }
 
-function _drawNominalPiCircuit(g, sw, sh, inputs, outputs) {
+function _drawNominalPiCircuit(g, svg, sw, sh, inputs, outputs) {
   const PAD  = 30;
   const topY = Math.max(sh * 0.35, 80);
   const botY = topY + 80;
@@ -1471,7 +1475,7 @@ function _drawNominalPiCircuit(g, sw, sh, inputs, outputs) {
   _drawCapCurrentArrow(g, juncL, topY, botY, 'IC2', 'left');
 
   // ── Bottom-right values table ──────────────────────────────────────────────
-  _circuitValuesTable(g, sw, sh, [
+  _circuitValuesTable(svg, svg.clientWidth || sw, svg.clientHeight || sh, [
     { label: 'VS',  value: _fmtPhasor(pVS.re,  pVS.im,  'kV') },
     { label: 'VR',  value: Vr_kV.toFixed(3) + '\u2220+0.0\u00b0\u00a0kV' },
     { label: 'IS',  value: _fmtPhasor(IS.re,   IS.im,   'kA', 3) },
@@ -1481,7 +1485,7 @@ function _drawNominalPiCircuit(g, sw, sh, inputs, outputs) {
   ]);
 }
 
-function _drawDistributedCircuit(g, sw, sh, inputs, outputs) {
+function _drawDistributedCircuit(g, svg, sw, sh, inputs, outputs) {
   // Fixed logical canvas width so elements never compress below comfortable size
   const CANVAS_W = Math.max(sw, 820);
   const PAD  = 30;
@@ -1569,7 +1573,7 @@ function _drawDistributedCircuit(g, sw, sh, inputs, outputs) {
   _drawCurrentArrow(g, j4 + 4, actualRightX - 4, arrowY, 'IR');
 
   // ── Bottom-right values table ─────────────────────────────────────────────
-  _circuitValuesTable(g, sw, sh, [
+  _circuitValuesTable(svg, svg.clientWidth || sw, svg.clientHeight || sh, [
     { label: 'VS', value: _fmtPhasor(outputs.Vs_phase_kV.re, outputs.Vs_phase_kV.im, 'kV') },
     { label: 'VR', value: Vr_kV.toFixed(3) + '\u2220+0.0\u00b0\u00a0kV' },
     { label: 'IS', value: _fmtPhasor(IS.re, IS.im, 'kA', 3) },
@@ -1579,7 +1583,7 @@ function _drawDistributedCircuit(g, sw, sh, inputs, outputs) {
 
 // ─── Distributed d/dx view (differential element) ────────────────────────────
 
-function _drawDistributedDiff(g, sw, sh, inputs, outputs) {
+function _drawDistributedDiff(g, svg, sw, sh, inputs, outputs) {
   const CANVAS_W = Math.max(sw, 820);
   const PAD  = 30;
   const topY = Math.max(sh * 0.32, 70);
@@ -1661,7 +1665,7 @@ function _drawDistributedDiff(g, sw, sh, inputs, outputs) {
   _drawCurrentArrow(g, rightX - 48, rightX - 4, arrowY, 'IR');
 
   // ── Bottom-right values table ─────────────────────────────────────────────
-  _circuitValuesTable(g, sw, sh, [
+  _circuitValuesTable(svg, svg.clientWidth || sw, svg.clientHeight || sh, [
     { label: 'VS', value: _fmtPhasor(outputs.Vs_phase_kV.re, outputs.Vs_phase_kV.im, 'kV') },
     { label: 'VR', value: Vr_kV.toFixed(3) + '\u2220+0.0\u00b0\u00a0kV' },
     { label: 'IS', value: _fmtPhasor(IS.re, IS.im, 'kA', 3) },
@@ -1697,6 +1701,41 @@ function _drawCapCurrentArrow(parent, x, topY, botY, name, side = 'right') {
   _circuitLabel(parent, labelX, botY + 10, name, anchor);
 }
 
+// ─── SVG subscript-text helper ──────────────────────────────────────────────
+// Longest match first so 'IC1'/'IC2' are caught before 'IC'.
+const _SVG_SUB = [
+  ['IC1', 'I', 'C1'], ['IC2', 'I', 'C2'],
+  ['VR',  'V', 'R' ], ['VS',  'V', 'S' ],
+  ['IR',  'I', 'R' ], ['IS',  'I', 'S' ],
+  ['IC',  'I', 'C' ], ['IL',  'I', 'L' ],
+  ['XL',  'X', 'L' ], ['XC',  'X', 'C' ],
+  ['Zc',  'Z', 'c' ],
+];
+/**
+ * Append text to a SVG <text>/<tspan> element, applying subscript <tspan>
+ * formatting to known variable names like VS, VR, IS, IR, IC1, IL, etc.
+ */
+function _svgSubText(el, text) {
+  let rem = text;
+  while (rem.length) {
+    let hit = false;
+    for (const [sym, base, sub] of _SVG_SUB) {
+      if (rem.startsWith(sym)) {
+        const b = _el('tspan'); b.textContent = base; el.appendChild(b);
+        const s = _el('tspan', { 'font-size': '7', dy: '3' }); s.textContent = sub; el.appendChild(s);
+        const r = _el('tspan', { dy: '-3' }); r.textContent = ''; el.appendChild(r);
+        rem = rem.slice(sym.length); hit = true; break;
+      }
+    }
+    if (!hit) {
+      let end = 1;
+      while (end < rem.length && !_SVG_SUB.some(([s]) => rem.slice(end).startsWith(s))) end++;
+      const plain = _el('tspan'); plain.textContent = rem.slice(0, end); el.appendChild(plain);
+      rem = rem.slice(end);
+    }
+  }
+}
+
 /**
  * Fixed bottom-right SVG values table (appended to svg, not the pannable g).
  * entries: [{label, value}]
@@ -1715,7 +1754,8 @@ function _circuitValuesTable(svg, sw, sh, entries) {
         'font-family': FONT, 'font-size': '9',
         fill, stroke, 'stroke-width': stroke === '#fff' ? '2.5' : '0', 'paint-order': 'stroke',
       });
-      t.textContent = entry.label + '\u00a0=\u00a0' + entry.value;
+      _svgSubText(t, entry.label);
+      t.appendChild(document.createTextNode('\u00a0=\u00a0' + entry.value));
       tg.appendChild(t);
     }
   });
@@ -1817,15 +1857,19 @@ function _phasorArmLabel(g, tx, ty, color, name, dx, dy) {
   if (dist < 10) return;
   const mx = tx - dx / 2;
   const my = ty - dy / 2;
-  const t = _el('text', {
+  const attrs = {
     x: mx, y: my,
     'text-anchor': 'middle', 'dominant-baseline': 'middle',
-    'font-family': FONT, 'font-size': '10', fill: color,
-    stroke: '#fff', 'stroke-width': '3', 'stroke-linejoin': 'round',
-    'paint-order': 'stroke fill',
-  });
-  t.textContent = name;
-  g.appendChild(t);
+    'font-family': FONT, 'font-size': '10',
+  };
+  // Pass 1: white knockout (fill+stroke both white so tspan borders don't leak)
+  const bg = _el('text', { ...attrs, fill: '#fff', stroke: '#fff', 'stroke-width': '3', 'stroke-linejoin': 'round', 'paint-order': 'stroke fill' });
+  _svgSubText(bg, name);
+  g.appendChild(bg);
+  // Pass 2: colored fill, no stroke
+  const fg = _el('text', { ...attrs, fill: color });
+  _svgSubText(fg, name);
+  g.appendChild(fg);
 }
 
 /**
@@ -1845,7 +1889,7 @@ function _phasorValuesTable(svg, sw, sh, entries) {
       'font-family': FONT, 'font-size': '9', fill: '#333',
     });
     const nameSpan = _el('tspan', { fill: entry.color });
-    nameSpan.textContent = entry.name;
+    _svgSubText(nameSpan, entry.name);
     t.appendChild(nameSpan);
     t.appendChild(document.createTextNode('\u00a0=\u00a0' + entry.value));
     tg.appendChild(t);
@@ -1865,15 +1909,17 @@ function _conLabel(g, x1, y1, dx, dy, text) {
   const dist = Math.hypot(dx, dy);
   if (dist < 4) return;
   const nx = -dy / dist * 9, ny = dx / dist * 9;
-  const t = _el('text', {
+  const attrs = {
     x: x1 + dx / 2 + nx, y: y1 + dy / 2 + ny,
     'text-anchor': 'middle', 'dominant-baseline': 'middle',
-    'font-family': FONT, 'font-size': '9', fill: '#666',
-    stroke: '#fff', 'stroke-width': '2.5', 'stroke-linejoin': 'round',
-    'paint-order': 'stroke fill',
-  });
-  t.textContent = text;
-  g.appendChild(t);
+    'font-family': FONT, 'font-size': '9',
+  };
+  const bg = _el('text', { ...attrs, fill: '#fff', stroke: '#fff', 'stroke-width': '2.5', 'stroke-linejoin': 'round', 'paint-order': 'stroke fill' });
+  _svgSubText(bg, text);
+  g.appendChild(bg);
+  const fg = _el('text', { ...attrs, fill: '#666' });
+  _svgSubText(fg, text);
+  g.appendChild(fg);
 }
 
 /** Scale legend — updates the DOM bottom bar when live, falls back to SVG for PDF export. */
@@ -1919,12 +1965,14 @@ function _phasorLegend(svg, sh, scale_V, scale_I, cV, cI) {
  * return (ox, oy) — the screen position of the origin — so the whole diagram
  * is centred with PAD margin on all sides.
  */
-function _phasorOrigin(pts, sw, sh, PAD = 65) {
+function _phasorOrigin(pts, sw, sh, PAD = 65, cw = null, ch = null) {
+  cw = cw ?? sw;
+  ch = ch ?? sh;
   const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
   const minX = Math.min(...xs), maxX = Math.max(...xs);
   const minY = Math.min(...ys), maxY = Math.max(...ys);
-  const ox = PAD - minX + Math.max(0, sw - 2 * PAD - (maxX - minX)) / 2;
-  const oy = PAD - minY + Math.max(0, sh - 2 * PAD - (maxY - minY)) / 2;
+  const ox = PAD - minX + Math.max(0, cw - 2 * PAD - (maxX - minX)) / 2;
+  const oy = PAD - minY + Math.max(0, ch - 2 * PAD - (maxY - minY)) / 2;
   return { ox, oy };
 }
 
@@ -1934,17 +1982,23 @@ function _redrawPhasor(inputs, outputs) {
   svg.innerHTML = '';
   _phasorG = _el('g');
   svg.appendChild(_phasorG);
-  _applyPhasorTransform();
+  // Pan only — zoom is baked into the coordinate calculation below so that
+  // arrowheads, stroke-widths and text stay constant screen-px while arm
+  // lengths scale with _viewPhasor.zoom.
+  if (_viewPhasor.panX !== 0 || _viewPhasor.panY !== 0)
+    _phasorG.setAttribute('transform', `translate(${_viewPhasor.panX},${_viewPhasor.panY})`);
   if (_phasorChkWrap) _phasorChkWrap.style.display = '';
-  const sw = svg.clientWidth  || 400;
-  const sh = svg.clientHeight || 300;
-  if      (inputs.model === 0) _drawShortPhasor(_phasorG, svg, sw, sh, inputs, outputs);
-  else if (inputs.model === 1) _drawNominalPiPhasor(_phasorG, svg, sw, sh, inputs, outputs);
-  else                          _drawDistPhasor(_phasorG, svg, sw, sh, inputs, outputs);
+  const rw = svg.clientWidth  || 400;
+  const rh = svg.clientHeight || 300;
+  const sw = rw * _viewPhasor.zoom;
+  const sh = rh * _viewPhasor.zoom;
+  if      (inputs.model === 0) _drawShortPhasor(_phasorG, svg, sw, sh, rw, rh, inputs, outputs);
+  else if (inputs.model === 1) _drawNominalPiPhasor(_phasorG, svg, sw, sh, rw, rh, inputs, outputs);
+  else                          _drawDistPhasor(_phasorG, svg, sw, sh, rw, rh, inputs, outputs);
 }
 
 // ── Short line: VS = VR + IR·(R + jXL),  IS = IR ─────────────────────────────
-function _drawShortPhasor(g, svg, sw, sh, inputs, outputs) {
+function _drawShortPhasor(g, svg, sw, sh, rw, rh, inputs, outputs) {
   const VR_kV  = inputs.nomSyskV / Math.sqrt(3);
   const pVR    = { re: VR_kV, im: 0 };
   const pIR    = _computeIR(inputs, outputs);             // kA (= IS)
@@ -1969,7 +2023,7 @@ function _drawShortPhasor(g, svg, sw, sh, inputs, outputs) {
   const iIR   = si(pIR);
 
   const { ox, oy } = _phasorOrigin(
-    [{ x: 0, y: 0 }, vVR, vVS, vInt, iIR], sw, sh);
+    [{ x: 0, y: 0 }, vVR, vVS, vInt, iIR], sw, sh, 65, rw, rh);
 
   // Reference axis
   const axMax = Math.max(vVR.x, vVS.x, iIR.x, 0);
@@ -1994,19 +2048,19 @@ function _drawShortPhasor(g, svg, sw, sh, inputs, outputs) {
   _phasorArmLabel(g, ox+vVS.x, oy+vVS.y, C_VS, 'VS', vVS.x, vVS.y);
   _phasorArmLabel(g, ox+iIR.x, oy+iIR.y, C_I,  'IR\u00a0=\u00a0IS', iIR.x, iIR.y);
 
-  _phasorValuesTable(svg, sw, sh, [
+  _phasorValuesTable(svg, rw, rh, [
     { name: 'VR',                 value: _fmtPhasor(VR_kV, 0, 'kV'),              color: C_VR },
     { name: 'VS',                 value: _fmtPhasor(pVS.re, pVS.im, 'kV'),        color: C_VS },
     { name: 'IR\u00a0=\u00a0IS', value: _fmtPhasor(pIR.re, pIR.im, 'kA', 3),    color: C_I  },
   ]);
-  _phasorLegend(svg, sh, sV, sI, C_VR, C_I);
+  _phasorLegend(svg, rh, sV, sI, C_VR, C_I);
 }
 
 // ── Nominal π: full textbook construction (Fig 2.8.6) ────────────────────────
 //   VR ref → IR lagging → IC1 = j(Y/2)VR → IL = IR+IC1
 //   VS = VR + IL·R + IL·jXL (voltage chain)
 //   IC2 = j(Y/2)VS → IS = IL+IC2
-function _drawNominalPiPhasor(g, svg, sw, sh, inputs, outputs) {
+function _drawNominalPiPhasor(g, svg, sw, sh, rw, rh, inputs, outputs) {
   const VR_kV = inputs.nomSyskV / Math.sqrt(3);
   const pVR   = { re: VR_kV, im: 0 };
   const pIR   = _computeIR(inputs, outputs);             // kA
@@ -2045,7 +2099,7 @@ function _drawNominalPiPhasor(g, svg, sw, sh, inputs, outputs) {
   const { ox, oy } = _phasorOrigin([
     { x: 0, y: 0 }, vVR, vVS, vInt,
     iIR, iIC1, iIL, iIC2, iIS, iIC1fromIR, iIC2fromIL,
-  ], sw, sh);
+  ], sw, sh, 65, rw, rh);
 
   // Reference axis
   const axMax = Math.max(vVR.x, vVS.x, iIR.x, iIL.x, 0);
@@ -2094,7 +2148,7 @@ function _drawNominalPiPhasor(g, svg, sw, sh, inputs, outputs) {
   _phasorArmLabel(g, ox+iIC2.x, oy+iIC2.y, C_IC, 'IC2', iIC2.x, iIC2.y);
   _phasorArmLabel(g, ox+iIS.x,  oy+iIS.y,  C_IS, 'IS',  iIS.x,  iIS.y);
 
-  _phasorValuesTable(svg, sw, sh, [
+  _phasorValuesTable(svg, rw, rh, [
     { name: 'VR',  value: _fmtPhasor(VR_kV, 0, 'kV'),            color: C_VR },
     { name: 'VS',  value: _fmtPhasor(pVS.re, pVS.im, 'kV'),      color: C_VS },
     { name: 'IR',  value: _fmtPhasor(pIR.re, pIR.im, 'kA', 3),   color: C_IR },
@@ -2103,11 +2157,11 @@ function _drawNominalPiPhasor(g, svg, sw, sh, inputs, outputs) {
     { name: 'IC2', value: _fmtPhasor(pIC2.re, pIC2.im, 'kA', 3), color: C_IC },
     { name: 'IS',  value: _fmtPhasor(pIS.re, pIS.im, 'kA', 3),   color: C_IS },
   ]);
-  _phasorLegend(svg, sh, sV, sI, C_VR, C_IL);
+  _phasorLegend(svg, rh, sV, sI, C_VR, C_IL);
 }
 
 // ── Distributed (ABCD): generic VR, VS, IR, IS from origin ───────────────────
-function _drawDistPhasor(g, svg, sw, sh, inputs, outputs) {
+function _drawDistPhasor(g, svg, sw, sh, rw, rh, inputs, outputs) {
   const VR_kV = inputs.nomSyskV / Math.sqrt(3);
   const pVR   = { re: VR_kV, im: 0 };
   const pVS   = outputs.Vs_phase_kV;
@@ -2126,7 +2180,7 @@ function _drawDistPhasor(g, svg, sw, sh, inputs, outputs) {
   const iIR = si(pIR), iIS = si(pIS);
 
   const { ox, oy } = _phasorOrigin(
-    [{ x: 0, y: 0 }, vVR, vVS, iIR, iIS], sw, sh);
+    [{ x: 0, y: 0 }, vVR, vVS, iIR, iIS], sw, sh, 65, rw, rh);
 
   const axMax = Math.max(vVR.x, vVS.x, iIR.x, iIS.x, 0);
   g.appendChild(_el('line', { x1: ox - 15, y1: oy, x2: ox + axMax + 15, y2: oy,
@@ -2145,13 +2199,13 @@ function _drawDistPhasor(g, svg, sw, sh, inputs, outputs) {
   _phasorArmLabel(g, ox+iIR.x, oy+iIR.y, C_IR, 'IR', iIR.x, iIR.y);
   _phasorArmLabel(g, ox+iIS.x, oy+iIS.y, C_IS, 'IS', iIS.x, iIS.y);
 
-  _phasorValuesTable(svg, sw, sh, [
+  _phasorValuesTable(svg, rw, rh, [
     { name: 'VR', value: _fmtPhasor(VR_kV, 0, 'kV'),          color: C_VR },
     { name: 'VS', value: _fmtPhasor(pVS.re, pVS.im, 'kV'),    color: C_VS },
     { name: 'IR', value: _fmtPhasor(pIR.re, pIR.im, 'kA', 3), color: C_IR },
     { name: 'IS', value: _fmtPhasor(pIS.re, pIS.im, 'kA', 3), color: C_IS },
   ]);
-  _phasorLegend(svg, sh, sV, sI, C_VR, C_IR);
+  _phasorLegend(svg, rh, sV, sI, C_VR, C_IR);
 }
 
 // ─── PDF diagram renderers (static, no module state) ─────────────────────────
@@ -2172,13 +2226,17 @@ export function renderArrangementSvgStr(inputs, w = 700, h = 240) {
   const phases = phasePositions(inputs);
   const pts    = Object.values(phases);
   const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
-  const physW = (Math.max(...xs) - Math.min(...xs)) + 2 * rPhys;
-  const physH = (Math.max(...ys) - Math.min(...ys)) + 2 * rPhys;
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  // PAD reserves space for phase labels, dim lines, and annotations
+  const PAD = 55;
   const scale = Math.min(
-    (w * 0.65) / (physW || 0.01),
-    (h * 0.65) / (physH || 0.01),
+    (w - 2 * PAD) / (maxX - minX || 0.01),
+    (h - 2 * PAD) / (maxY - minY || 0.01),
   );
-  const tx = w / 2, ty = h / 2;
+  const rangeX = (maxX - minX) * scale, rangeY = (maxY - minY) * scale;
+  const tx = PAD + (-minX) * scale + Math.max(0, (w - 2 * PAD - rangeX) / 2);
+  const ty = PAD + (-minY) * scale + Math.max(0, (h - 2 * PAD - rangeY) / 2);
   const dispR       = FIXED_R_PX;
   const dispSpacing = FIXED_SC_SPACING_PX;
   const bundleExtent = dispSpacing / 2 + dispR;
@@ -2256,6 +2314,18 @@ export function renderArrangementSvgStr(inputs, w = 700, h = 240) {
     }
   });
 
+  // Radius annotation — bottom-left corner (SVG text, no checkboxes)
+  for (const [stroke, fill] of [['#fff', 'none'], ['none', '#333']]) {
+    const t = _el('text', {
+      x: 6, y: h - 5,
+      'text-anchor': 'start', 'dominant-baseline': 'auto',
+      'font-family': FONT, 'font-size': '9',
+      fill, stroke, 'stroke-width': stroke === '#fff' ? '2' : '0', 'paint-order': 'stroke',
+    });
+    t.textContent = `r\u00a0=\u00a0${(rPhys * 100).toFixed(2)}\u00a0cm`;
+    svg.appendChild(t);
+  }
+
   return new XMLSerializer().serializeToString(svg);
 }
 
@@ -2283,9 +2353,9 @@ export function renderCircuitSvgStr(inputs, outputs, w = 700, h = 210) {
   const g = _el('g');
   svg.appendChild(g);
 
-  if      (inputs.model === 0) _drawShortCircuit(g, svgW, h, inputs, outputs);
-  else if (inputs.model === 1) _drawNominalPiCircuit(g, svgW, h, inputs, outputs);
-  else                          _drawDistributedCircuit(g, svgW, h, inputs, outputs);
+  if      (inputs.model === 0) _drawShortCircuit(g, svg, svgW, h, inputs, outputs);
+  else if (inputs.model === 1) _drawNominalPiCircuit(g, svg, svgW, h, inputs, outputs);
+  else                          _drawDistributedCircuit(g, svg, svgW, h, inputs, outputs);
 
   return new XMLSerializer().serializeToString(svg);
 }
@@ -2310,9 +2380,15 @@ export function renderPhasorSvgStr(inputs, outputs, w = 700, h = 260) {
   const g = _el('g');
   svg.appendChild(g);
 
-  if      (inputs.model === 0) _drawShortPhasor(g, svg, w, h, inputs, outputs);
-  else if (inputs.model === 1) _drawNominalPiPhasor(g, svg, w, h, inputs, outputs);
-  else                          _drawDistPhasor(g, svg, w, h, inputs, outputs);
+  // Temporarily suppress the live legend DOM element so _phasorLegend draws
+  // into the SVG instead of updating the bottom-bar overlay.
+  const _savedLegendEl = _phasorLegendEl;
+  _phasorLegendEl = null;
+  // sw/sh = zoomed dims (~2× real); rw/rh = real canvas size for fixed-position elements
+  if      (inputs.model === 0) _drawShortPhasor(g, svg, w * 2, h * 2, w, h, inputs, outputs);
+  else if (inputs.model === 1) _drawNominalPiPhasor(g, svg, w * 2, h * 2, w, h, inputs, outputs);
+  else                          _drawDistPhasor(g, svg, w * 2, h * 2, w, h, inputs, outputs);
+  _phasorLegendEl = _savedLegendEl;
 
   return new XMLSerializer().serializeToString(svg);
 }

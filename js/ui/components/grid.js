@@ -15,20 +15,20 @@ const COL_WIDTHS_DEFAULT = [175, 140, 54]; // A : B : C — fixed initial pixel 
 const DEFAULT_ROWS = [
   ['Inductance per phase per km',  '—', 'H/km'],
   ['Capacitance per phase per km', '—', 'F/km'],
-  ['Inductive reactance XL',       '—', 'Ω'   ],
-  ['Capacitive reactance XC',      '—', 'Ω'   ],
+  ['Inductive reactance X<sub>L</sub>',       '—', 'Ω'   ],
+  ['Capacitive reactance X<sub>C</sub>',      '—', 'Ω'   ],
   ['A',                            '—', ''    ],
   ['B',                            '—', 'Ω'   ],
   ['C',                            '—', 'S'   ],
   ['D',                            '—', ''    ],
   ['Sending end voltage (phase)',  '—', 'kV'  ],
   ['Sending end voltage (line)',   '—', 'kV'  ],
-  ['Sending end current Is',       '—', 'A'   ],
-  ['Charging current Ic',          '—', 'A'   ],
+  ['Sending end current I<sub>s</sub>',       '—', 'A'   ],
+  ['Charging current I<sub>c</sub>',          '—', 'A'   ],
   ['Voltage regulation',           '—', '%'   ],
   ['Power loss (3φ)',               '—', 'MW'  ],
   ['Transmission efficiency',      '—', '%'   ],
-  ['Surge impedance Zc',           '—', 'Ω'   ],
+  ['Surge impedance Z<sub>c</sub>',           '—', 'Ω'   ],
   ['Surge impedance loading SIL',  '—', 'MW'  ],
 ];
 
@@ -139,9 +139,10 @@ function buildRow(rowIdx, cells) {
   rowHdr.textContent = rowIdx + 1;
   tr.appendChild(rowHdr);
 
-  cells.forEach((text) => {
+  cells.forEach((text, ci) => {
     const td = document.createElement('td');
-    td.textContent = text;
+    if (ci === 0) td.innerHTML = text;
+    else td.textContent = text;
     tr.appendChild(td);
   });
 

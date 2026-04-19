@@ -121,6 +121,7 @@ function _print() {
 </head>
 <body>
 ${content.innerHTML}
+<script>window.addEventListener('load',()=>window.print())<\/script>
 </body>
 </html>`;
 
@@ -130,5 +131,4 @@ ${content.innerHTML}
   win.document.write(html);
   win.document.close();
   win.focus();
-  win.print();
 }
