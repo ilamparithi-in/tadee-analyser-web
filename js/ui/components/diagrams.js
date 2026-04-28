@@ -1307,18 +1307,6 @@ function _drawVoltageArrow(parent, x, topY, botY, label, side) {
 
 // ─── ABCD helpers ─────────────────────────────────────────────────────────────
 
-/** Compute IR (kA) via ABCD back-calc: IR = (VS − A·VR) / B */
-function _computeIR(inputs, outputs) {
-  const Vr    = inputs.nomSyskV / Math.sqrt(3);
-  const numRe = outputs.Vs_phase_kV.re - outputs.A.re * Vr;
-  const numIm = outputs.Vs_phase_kV.im - outputs.A.im * Vr;
-  const denom = outputs.B.re ** 2 + outputs.B.im ** 2;
-  return {
-    re: denom > 0 ? (numRe * outputs.B.re + numIm * outputs.B.im) / denom : 0,
-    im: denom > 0 ? (numIm * outputs.B.re - numRe * outputs.B.im) / denom : 0,
-  };
-}
-
 /** IS in kA.  outputs.Is_A stores values in Amperes despite the name. */
 function _IS_kA(outputs) {
   return { re: outputs.Is_A.re / 1e3, im: outputs.Is_A.im / 1e3 };
@@ -1389,7 +1377,7 @@ function _drawShortCircuit(g, svg, sw, sh, inputs, outputs) {
   // ── Current arrows (name only) ────────────────────────────────────────────
   const arrowY = topY - 26;
   const IS = _IS_kA(outputs);
-  const IR = _computeIR(inputs, outputs);
+  const IR = outputs.Ir_kA;
   _drawCurrentArrow(g, leftX  + 4, serL - 3, arrowY, 'IS');
   _drawCurrentArrow(g, serR + 3, rightX - 4, arrowY, 'IR');
 
@@ -1464,7 +1452,7 @@ function _drawNominalPiCircuit(g, svg, sw, sh, inputs, outputs) {
   // ── Currents (name only on arrows, values in table) ─────────────────────────
   const arrowY = topY - 26;
   const IS = _IS_kA(outputs);
-  const IR = _computeIR(inputs, outputs);
+  const IR = outputs.Ir_kA;
   _drawCurrentArrow(g, leftX  + 4, juncL - 4, arrowY, 'IS');
   _drawCurrentArrow(g, juncR + 4, rightX - 4, arrowY, 'IR');
 
@@ -1567,7 +1555,7 @@ function _drawDistributedCircuit(g, svg, sw, sh, inputs, outputs) {
 
   // ── Current arrows (name only) ────────────────────────────────────────────
   const IS = _IS_kA(outputs);
-  const IR = _computeIR(inputs, outputs);
+  const IR = outputs.Ir_kA;
   const arrowY = topY - 28;
   _drawCurrentArrow(g, leftX + 4, leftX + CELL_W * 0.45, arrowY, 'IS');
   _drawCurrentArrow(g, j4 + 4, actualRightX - 4, arrowY, 'IR');
@@ -1660,7 +1648,7 @@ function _drawDistributedDiff(g, svg, sw, sh, inputs, outputs) {
   // ── IS / IR current arrows (name only) ───────────────────────────────────
   const arrowY = topY - 10;
   const IS = _IS_kA(outputs);
-  const IR = _computeIR(inputs, outputs);
+  const IR = outputs.Ir_kA;
   _drawCurrentArrow(g, leftX + 4, leftX + 44, arrowY, 'IS');
   _drawCurrentArrow(g, rightX - 48, rightX - 4, arrowY, 'IR');
 
@@ -2001,7 +1989,7 @@ function _redrawPhasor(inputs, outputs) {
 function _drawShortPhasor(g, svg, sw, sh, rw, rh, inputs, outputs) {
   const VR_kV  = inputs.nomSyskV / Math.sqrt(3);
   const pVR    = { re: VR_kV, im: 0 };
-  const pIR    = _computeIR(inputs, outputs);             // kA (= IS)
+  const pIR    = outputs.Ir_kA;                          // kA (= IS)
   const R = outputs.B.re, XL = outputs.B.im;
   const pIRRi  = { re: pIR.re * R,   im: pIR.im * R   }; // IR·R   kV
   const pIRXLi = { re: -pIR.im * XL, im: pIR.re * XL  }; // IR·jXL kV
@@ -2063,7 +2051,7 @@ function _drawShortPhasor(g, svg, sw, sh, rw, rh, inputs, outputs) {
 function _drawNominalPiPhasor(g, svg, sw, sh, rw, rh, inputs, outputs) {
   const VR_kV = inputs.nomSyskV / Math.sqrt(3);
   const pVR   = { re: VR_kV, im: 0 };
-  const pIR   = _computeIR(inputs, outputs);             // kA
+  const pIR   = outputs.Ir_kA;                          // kA
 
   // IC1 = j·(Y/2)·VR,  Y = 1/Xc  →  j·VR/(2·Xc)  [kA]
   const pIC1  = { re: -pVR.im / (2 * outputs.Xc), im: pVR.re / (2 * outputs.Xc) };
@@ -2166,7 +2154,7 @@ function _drawDistPhasor(g, svg, sw, sh, rw, rh, inputs, outputs) {
   const pVR   = { re: VR_kV, im: 0 };
   const pVS   = outputs.Vs_phase_kV;
   const pIS   = _IS_kA(outputs);
-  const pIR   = _computeIR(inputs, outputs);
+  const pIR   = outputs.Ir_kA;
 
   const maxV = Math.max(cMag(pVR), cMag(pVS)) || 1;
   const maxI = Math.max(cMag(pIS), cMag(pIR)) || 0.001;

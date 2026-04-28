@@ -78,6 +78,7 @@ export function computeFromParams(params) {
   const abcd = calc.ABCDparams();
   const vs   = calc.Vs_kV_line_phase();
   const is   = calc.Is_A();
+  const ir   = calc.Ir();
   const ich  = calc.Icharging_A();
   const vr   = calc.percent_VR();
   const pl   = calc.power_loss_MW_and_efficiency();
@@ -118,6 +119,7 @@ export function computeFromParams(params) {
     Vs_phase_kV: { re: vs.phase.re,      im: vs.phase.im      },
     Vs_line_kV:  { re: vs.linetoline.re, im: vs.linetoline.im },
     Is_A:  { re: is.re,  im: is.im  },
+    Ir_kA: { re: ir.re,  im: ir.im  },
     Ic_A:  { re: ich.re, im: ich.im },
     VR: vr, lossMW, eta,
     Zc: calc.Zc(), SIL: calc.SIL_MW(),

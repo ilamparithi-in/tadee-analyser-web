@@ -30,7 +30,7 @@ string export for PDF reports.
    - [Nominal π Circuit](#84-nominal-π-circuit)
    - [Distributed Ladder Circuit](#85-distributed-ladder-circuit)
    - [Distributed d/dx Differential View](#86-distributed-ddx-differential-view)
-   - [ABCD Back-Calculation Helpers](#87-abcd-back-calculation-helpers)
+   - [Current Helpers](#87-current-helpers)
    - [Values Table and Labels](#88-values-table-and-labels)
 9. [Pane 3 — Phasor Diagram](#9-pane-3--phasor-diagram)
    - [Scale Computation](#91-scale-computation)
@@ -646,31 +646,17 @@ Two dimension arrows:
 1. `dx` between `boxL` and `boxR` (24 px below the bottom rail).
 2. `l = X km` between `leftX` and `rightX` (56 px below the bottom rail).
 
-### 8.7 ABCD Back-Calculation Helpers
+### 8.7 Current Helpers
 
-The circuit diagrams need IR (receiving-end current) separately from
-what the ABCD model directly provides.
+The circuit and phasor renderers work with currents in kA. Both IR and IS
+are sourced from the `outputs` object produced by `computeFromParams`:
 
-**`_computeIR(inputs, outputs)`** — back-calculates IR (kA) from:
+- `outputs.Ir_kA` — receiving-end current in kA (complex).
+- `outputs.Is_A` — sending-end current in **Amperes** despite the name.
 
-$$
-I_R = \frac{V_S - A \cdot V_R}{B}
-$$
-
-In complex arithmetic:
-
-$$
-\text{IR}_\text{re} = \frac{\text{Re}(V_S - A \cdot V_R) \cdot B_\text{re} + \text{Im}(V_S - A \cdot V_R) \cdot B_\text{im}}{|B|^2}
-$$
-$$
-\text{IR}_\text{im} = \frac{\text{Im}(V_S - A \cdot V_R) \cdot B_\text{re} - \text{Re}(V_S - A \cdot V_R) \cdot B_\text{im}}{|B|^2}
-$$
-
-where VR is treated as purely real: `VR = nomSyskV / √3` (phase voltage,
-VR as the phasor reference at ∠0°).
-
-**`_IS_kA(outputs)`** — converts `outputs.Is_A` (which is stored in
-Amperes despite its name) to kA by dividing by 1000.
+**`_IS_kA(outputs)`** — convenience wrapper that divides `outputs.Is_A`
+by 1000 to return IS in kA for use alongside IR in the same coordinate
+scale.
 
 ### 8.8 Values Table and Labels
 
@@ -758,7 +744,7 @@ just the PAD margin.
 **Complex arithmetic** (all units kV or kA):
 
 ```
-pIR        = _computeIR(inputs, outputs)       kA
+pIR        = outputs.Ir_kA                     kA
 pIR·R      = { re: pIR.re·R,    im: pIR.im·R }
 pIR·jXL    = { re: −pIR.im·XL,  im: pIR.re·XL }
 pVS        = pVR + pIR·R + pIR·jXL
