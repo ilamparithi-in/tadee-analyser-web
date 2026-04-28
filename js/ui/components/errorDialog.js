@@ -105,6 +105,67 @@ export function showError(message) {
   _playChord();
 }
 
+// ─── Info dialog ─────────────────────────────────────────────────────────────
+
+let _infoOverlayEl = null;
+let _infoMsgEl     = null;
+let _infoOkBtn     = null;
+
+function _ensureInfoDOM() {
+  if (_infoOverlayEl) return;
+
+  _infoOverlayEl = document.createElement('div');
+  _infoOverlayEl.style.cssText =
+    'position:fixed;inset:0;background:rgba(0,0,0,0.35);' +
+    'z-index:99999;display:none;align-items:center;justify-content:center;';
+
+  const win = document.createElement('div');
+  win.className = 'window';
+  win.style.cssText = 'width:320px;position:relative;';
+
+  win.innerHTML = `
+    <div class="title-bar">
+      <div class="title-bar-text">Display Tip</div>
+      <div class="title-bar-controls">
+        <button aria-label="Close" id="info-dialog-close"></button>
+      </div>
+    </div>
+    <div class="window-body" style="display:flex;gap:12px;align-items:flex-start;padding:12px 12px 8px;">
+      <img src="media/icons/msg_information-0.png" width="32" height="32" alt="" style="flex:0 0 32px;">
+      <p id="info-dialog-msg" style="margin:0;font-size:11px;line-height:1.5;word-break:break-word;"></p>
+    </div>
+    <div style="display:flex;justify-content:center;padding:4px 12px 10px;">
+      <button id="info-dialog-ok" style="min-width:75px;">OK</button>
+    </div>`;
+
+  _infoOverlayEl.appendChild(win);
+  document.body.appendChild(_infoOverlayEl);
+
+  _infoMsgEl = win.querySelector('#info-dialog-msg');
+  _infoOkBtn = win.querySelector('#info-dialog-ok');
+
+  const close = () => { _infoOverlayEl.style.display = 'none'; };
+  _infoOkBtn.addEventListener('click', close);
+  win.querySelector('#info-dialog-close').addEventListener('click', close);
+  _infoOverlayEl.addEventListener('click', e => { if (e.target === _infoOverlayEl) close(); });
+  document.addEventListener('keydown', e => {
+    if (_infoOverlayEl.style.display === 'none') return;
+    if (e.key === 'Escape' || e.key === 'Enter') close();
+  });
+}
+
+/**
+ * Show a Win98-style information dialog with the given HTML message and play ding.mp3.
+ * @param {string} message  HTML string
+ */
+export function showInfo(message) {
+  _ensureInfoDOM();
+  _infoMsgEl.innerHTML = message;
+  _infoOverlayEl.style.display = 'flex';
+  _infoOkBtn.focus();
+  _playDing();
+}
+
 // ─── Confirm dialog ───────────────────────────────────────────────────────────
 
 let _cfmOverlayEl = null;

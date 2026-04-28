@@ -1,5 +1,5 @@
 import { raiseWindow, maximizeWindow } from './windowManager.js';
-import { showConfirm } from './errorDialog.js';
+import { showConfirm, showInfo } from './errorDialog.js';
 
 function _openExternal(url) {
   showConfirm(
@@ -72,21 +72,13 @@ export function initDesktop(containerEl) {
     '</ul>';
   containerEl.appendChild(info);
 
-  // Active Desktop zoom notice — bottom-right corner
-  const notice = document.createElement('div');
-  notice.id = 'active-desktop-notice';
-  notice.innerHTML =
-    '<span class="adn-icon" aria-hidden="true">i</span>' +
-    '<span class="adn-text">For the best experience on a high&#8209;resolution display, ' +
-    'press <kbd>Ctrl</kbd>&nbsp;+&nbsp;<kbd>+</kbd> to increase zoom.</span>' +
-    '<button class="adn-close" aria-label="Close notice" title="Close">✕</button>';
-  containerEl.appendChild(notice);
-  notice.querySelector('.adn-close').addEventListener('click', () => {
-    notice.remove();
-    _stackLegalese(legal, null);
-  });
+  // Show the HiDPI zoom tip as a Win98 info dialog once the page has rendered
+  setTimeout(() => showInfo(
+    'For the best experience on a high\u2011resolution display, ' +
+    'press <b>Ctrl&nbsp;+&nbsp;+</b> to increase zoom.'
+  ), 300);
 
-  // Legalese — bottom-right corner, stacked above the zoom notice
+  // Legalese — bottom-right corner
   const legal = document.createElement('div');
   legal.id = 'desktop-legalese';
   legal.innerHTML =
@@ -103,10 +95,6 @@ export function initDesktop(containerEl) {
   });
   containerEl.appendChild(legal);
 
-  // Stack legalese above the zoom notice dynamically
-  _stackLegalese(legal, notice);
-  new ResizeObserver(() => _stackLegalese(legal, notice)).observe(notice);
-
   // Deselect all icons when clicking blank desktop space
   containerEl.addEventListener('click', e => {
     if (e.target === containerEl) _deselectAll();
@@ -119,20 +107,6 @@ export function initDesktop(containerEl) {
 
 function _deselectAll() {
   document.querySelectorAll('.desktop-icon.selected').forEach(i => i.classList.remove('selected'));
-}
-
-/**
- * Position `legalEl` so it sits 8px above `noticeEl`.
- * If noticeEl is null or no longer in the DOM, fall back to bottom: 12px.
- */
-function _stackLegalese(legalEl, noticeEl) {
-  if (noticeEl && noticeEl.isConnected) {
-    const noticeH   = noticeEl.offsetHeight;
-    const noticeBot = parseInt(getComputedStyle(noticeEl).bottom, 10) || 12;
-    legalEl.style.bottom = (noticeBot + noticeH + 8) + 'px';
-  } else {
-    legalEl.style.bottom = '12px';
-  }
 }
 
 function _createIcon({ id, label, img: imgSrc, overlay, hint, action }) {

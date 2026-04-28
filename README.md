@@ -2,7 +2,9 @@
 
 A browser-based tool for analysing balanced three-phase AC overhead transmission lines using standard ABCD-parameter methods. Built with a Windows 98-style interface using [98.css](https://github.com/jdan/98.css).
 
-**TADEE Group 4 — Version 1.1**
+**TADEE Analyser Group 4 — Version 1.1**
+
+![Screenshot of the TADEE Analyser window](media/readme-preview.png)
 
 ---
 
@@ -23,7 +25,7 @@ The TADEE Analyser models single-circuit bundled-conductor overhead transmission
 ### Input Parameters
 - Line length, receiving-end load, power factor, nominal voltage, and frequency
 - Symmetrical (single D) or unsymmetrical (Dab, Dbc, Dca) conductor geometry
-- Bundled conductor support: 1–4 sub-conductors per bundle with configurable spacing
+- Bundled conductor support: 2–4 sub-conductors per bundle with configurable spacing
 - Conductor strand count, strand diameter, and AC resistance per unit length
 
 ### Results
